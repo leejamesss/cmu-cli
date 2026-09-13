@@ -692,7 +692,14 @@ def command_provider(args):
             result = None
             error = {
                 "code": code,
-                "message": "Check provider authorization and availability.",
+                # An Ed authorization message is one of a few literals authored in
+                # ed_client, so it carries no provider detail -- and it is the only
+                # text that says what to do. Reporting it here keeps `ed courses`
+                # consistent with `ed threads`, which already surfaced the same
+                # sentence through its partial listing.
+                "message": str(exc)
+                if isinstance(exc, EdAuthError)
+                else "Check provider authorization and availability.",
             }
     if args.json:
         print_json(result, error=error)
