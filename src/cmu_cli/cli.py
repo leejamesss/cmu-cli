@@ -485,6 +485,8 @@ def quiz_time(item: dict[str, Any]) -> str:
     if item.get("due_at"):
         return f"due {item['due_local']}"
     if item.get("starts_at"):
+        if item.get("source") == "course_site" and item.get("time_inferred"):
+            return f"starts (inferred) {item['starts_local']}"
         return f"opens {item['starts_local']}"
     return f"due {item['due_local']}"
 
