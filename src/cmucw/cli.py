@@ -16,6 +16,7 @@ from zoneinfo import ZoneInfo
 from dateutil.parser import isoparse
 from dateutil.parser import parse as parse_date
 
+from . import style
 from .canvas_client import CanvasClient, CanvasError
 from .edge_browser import BrowserError, EdgeBrowser
 from .gradescope_client import GradescopeClient
@@ -207,9 +208,24 @@ def command_courses(
     if args.json:
         print_json(rows)
     else:
-        for row in rows:
-            print(f"◆ {row['code']} — {row['name']} [Canvas {row['canvas_id']}]")
-            print(f"  {row['canvas_url']}")
+
+        def plain():
+            for row in rows:
+                print(f"◆ {row['code']} — {row['name']} [Canvas {row['canvas_id']}]")
+                print(f"  {row['canvas_url']}")
+
+        style.render(
+            "Courses",
+            [
+                ("Code", "code"),
+                ("Name", "name"),
+                ("Canvas", "canvas_id"),
+                ("URL", "canvas_url"),
+            ],
+            rows,
+            plain,
+            empty="No courses configured.",
+        )
     return 0
 
 
@@ -298,12 +314,29 @@ def command_assignments(
     elif not rows:
         print("No matching assignments returned.")
     else:
-        for item in rows:
-            print(
-                f"◆ {item['course']} | {item['name']} | {item['status']} | {item['source']}"
-            )
-            print(f"  Due: {item['due_local']}")
-            print(f"  {item['url']}")
+
+        def plain():
+            for item in rows:
+                print(
+                    f"◆ {item['course']} | {item['name']} | {item['status']} | {item['source']}"
+                )
+                print(f"  Due: {item['due_local']}")
+                print(f"  {item['url']}")
+
+        style.render(
+            "Assignments",
+            [
+                ("Course", "course"),
+                ("Assignment", "name"),
+                ("Due", "due_local"),
+                ("Status", "status"),
+                ("Source", "source"),
+            ],
+            rows,
+            plain,
+            empty="No matching assignments returned.",
+            styles={"status": style.status_markup},
+        )
     return 0
 
 
