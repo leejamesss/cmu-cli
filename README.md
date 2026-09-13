@@ -90,7 +90,7 @@ downloads while keeping metadata and indexes. Store exports privately.
 | **Gradescope** | Assignment and submission states through `assignments` | [Course URL + browser session](docs/provider-cli.md#piazza-and-gradescope) |
 | **Piazza** | Class feed through `posts` | [Class URL + browser session](docs/provider-cli.md#piazza-and-gradescope) |
 | **Ed Discussion** | `ed courses`, `ed threads`, `ed thread`, `ed replies`, `ed search` | [API token](docs/ed.md#authentication-and-origins) |
-| **SIO** | `sio schedule`, `sio waitlist-history` | [Browser setup and rendered-HTML fallback](docs/sio.md) |
+| **SIO** | `sio schedule`, `sio waitlist-history` | [SIO-only browser setup (no Canvas required)](docs/sio.md#browser-setup-no-canvas-configuration-required) |
 
 For example, after setting `CMU_CLI_ED_TOKEN` through your secret-management workflow:
 

@@ -3,6 +3,9 @@
 Transport fixtures model the publicly observed redirect chain, not a private API.
 """
 
+import json
+import re
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
@@ -305,3 +308,58 @@ def test_transport_error_sanitized(monkeypatch):
     with pytest.raises(sio.SIOError) as exc:
         sio.SIOClient().probe()
     assert "secret" not in str(exc.value)
+
+
+@pytest.mark.parametrize(
+    "action,url,history",
+    [
+        ("schedule", sio.SEMESTER_SCHEDULE_URL, False),
+        ("waitlist-history", sio.WAITLIST_HISTORY_URL, True),
+    ],
+)
+@pytest.mark.parametrize("redirect", [False, True])
+def test_documented_sio_only_config_cli(
+    monkeypatch, tmp_path, capsys, action, url, history, redirect
+):
+    """Exercise the documented config through real CLI dispatch; no real cookies."""
+    from cmu_cli import cli
+    from cmu_cli.models import load_provider_config
+
+    doc = (Path(__file__).resolve().parents[1] / "docs" / "sio.md").read_text()
+    raw = json.loads(re.search(r"```json\n(.*?)\n```", doc, re.DOTALL).group(1))
+    assert set(raw) == {"browser_auth"}
+    path = tmp_path / "sio.json"
+    path.write_text(json.dumps(raw))
+    assert load_provider_config(path).browser_auth == raw["browser_auth"]
+    value = (
+        response(302, "https://login.cmu.edu/idp/profile/SAML2/Redirect/SSO")
+        if redirect
+        else response(200, content=synthetic_page(history).encode())
+    )
+    session = session_for(monkeypatch, [value])
+    loader = Mock(return_value=session)
+    monkeypatch.setattr(sio, "browser_cookie_session", loader)
+    monkeypatch.setattr(
+        "sys.argv", ["cmu-cli", "--config", str(path), "sio", action, "--json"]
+    )
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main()
+    assert exit_info.value.code == (3 if redirect else 0)
+    output = json.loads(capsys.readouterr().out)
+    result = output["data"]
+    loader.assert_called_once_with("s3.andrew.cmu.edu", raw["browser_auth"])
+    assert session.get.call_count == 1
+    assert session.get.call_args.args == (url,)
+    assert session.get.call_args.kwargs["allow_redirects"] is False
+    assert session.get.call_args.kwargs["params"] is None
+    if redirect:
+        assert result["status"] == "auth_redirect_blocked"
+        assert not result["complete"]
+        assert output["warnings"]
+    else:
+        assert output["status"] == result["status"] == "ok"
+        assert result["rows_seen"] == result["rows_parsed"] == 1
+        assert result["complete"]
+        assert result["provenance"]["method"] == "https_get"
+        assert output["warnings"] == result["warnings"] == []
+    value.close.assert_called_once()
