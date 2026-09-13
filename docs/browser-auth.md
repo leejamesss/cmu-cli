@@ -9,10 +9,20 @@ python -m pip install 'cmu-cli[browser] @ https://github.com/leejamesss/cmu-cli/
 
 If you have not created a config yet, run `cmu-cli config init --output cmu-cli.json`.
 
-Log in normally in your chosen browser, including any MFA. Open `edge://version`
-(or `chrome://version`) and inspect **Profile Path** yourself. Select that profile's
-`Cookies` or `Network/Cookies` database explicitly. No browser/profile discovery
-or broad automatic scan is performed. OS permission prompts may occur locally;
+Log in normally in your chosen browser, including any MFA. Then list the cookie
+databases that exist at the standard per-browser locations and pick the profile you
+signed in with:
+
+```sh
+cmu-cli config browsers
+```
+
+This prints paths and a configuration block to copy. It opens, reads and decrypts
+nothing, and performs no search outside those fixed locations. To find the path
+yourself instead, open `edge://version` (or `chrome://version`) and inspect
+**Profile Path**. Either way you select that profile's `Cookies` or
+`Network/Cookies` database explicitly: no profile is discovered or used
+automatically on an authenticated read path. OS permission prompts may occur locally;
 if access is denied, stop and resolve browser/OS access normally. Never disable TLS
 or bypass access controls. Do not paste cookies, tokens or passwords into chat.
 

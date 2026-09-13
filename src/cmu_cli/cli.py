@@ -772,7 +772,7 @@ def parser() -> argparse.ArgumentParser:
     )
     history.add_argument("--json", action="store_true")
     configuration = commands.add_parser("config", help="Offline configuration tools")
-    configuration.add_argument("action", choices=["init", "validate"])
+    configuration.add_argument("action", choices=["init", "validate", "browsers"])
     configuration.add_argument("--output", type=Path, default=Path("cmu-cli.json"))
     configuration.add_argument("--json", action="store_true")
     auth = commands.add_parser("auth", help="Offline OAuth registration preflight only")
@@ -861,6 +861,40 @@ def main() -> None:
                     print(result["assignment_index"])
                     print("Generated exports (temporary; removed after demo):")
                     print("\n".join(result["exports"]))
+                return
+            if args.command == "config" and args.action == "browsers":
+                from .browser_profiles import candidate_databases
+
+                rows = candidate_databases()
+                if args.json:
+                    print_json(rows)
+                elif not rows:
+                    print(
+                        "No Edge or Chrome cookie database found in the standard "
+                        "locations.\nSafari and Firefox are not supported; see "
+                        "docs/browser-auth.md to name a database explicitly."
+                    )
+                else:
+                    print(
+                        "Cookie databases found. Nothing was opened or decrypted; "
+                        "choose one yourself:\n"
+                    )
+                    for index, row in enumerate(rows, 1):
+                        print(
+                            f"  [{index}] {row['browser']} / {row['profile']}\n"
+                            f"      {row['cookie_file']}"
+                        )
+                    chosen = rows[0]
+                    print(
+                        "\nAdd the one you are signed in with to your configuration, "
+                        "listing only the hosts you want read:\n\n"
+                        '  "browser_auth": {\n'
+                        '    "enabled": true,\n'
+                        f'    "browser": "{chosen["browser"]}",\n'
+                        f'    "cookie_file": "{chosen["cookie_file"]}",\n'
+                        '    "hosts": ["piazza.com", "www.gradescope.com"]\n'
+                        "  }"
+                    )
                 return
             if args.command == "config" and args.action == "init":
                 template = (
