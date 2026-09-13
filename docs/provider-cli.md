@@ -40,7 +40,7 @@ and signed URLs. Query commands do not write course files.
 Keep the **full configuration from `config init`**, including `canvas_base_url`,
 `storage_root`, `term`, and each course's `code`, positive `canvas_id`, `name`, and
 `directory`. Only Ed and SIO accept minimal provider-only configuration. Piazza
-`posts` needs no Canvas login, but still requires this configuration structure;
+`posts` and `grades --source gradescope` need no Canvas login, but still require this configuration structure;
 `assignments` also initializes Canvas and requires its authorization.
 
 This complete synthetic example can be saved as `cmu-cli.json` and checked with
@@ -77,6 +77,8 @@ Include the corresponding exact hosts in `browser_auth.hosts`.
 ```sh
 cmu-cli --config cmu-cli.json posts --course DEMO-101 --json
 cmu-cli --config cmu-cli.json assignments --course DEMO-101 --json
+cmu-cli --config cmu-cli.json grades --source gradescope --course DEMO-101 --json
+cmu-cli --config cmu-cli.json grades --source gradescope --course DEMO-101 --details --json
 cmu-cli --config cmu-cli.json open canvas --course DEMO-101
 ```
 
@@ -84,6 +86,10 @@ cmu-cli --config cmu-cli.json open canvas --course DEMO-101
 assignment/submission states alongside Canvas. Provider failures remain explicit
 rather than turning into empty results. `open` only launches the configured URL
 in your default browser; it does not authenticate an API request.
+
+Gradescope scores preserve released zero/max values and unknown states. `--details`
+follows only observed same-course links and always reports partial feedback (exit 3);
+it does not download graded copies. See [Gradescope scope](provider-expansion-grades.md).
 
 ## Ed Discussion
 
@@ -96,9 +102,17 @@ cmu-cli ed threads --course-id 12 --page-size 100 --max-pages 100 --json
 cmu-cli ed thread --id 34 --course-id 12 --json
 cmu-cli ed replies --id 34 --json
 cmu-cli ed search --course-id 12 --query deadline --json
+cmu-cli ed materials --course-id 12 --json
+# Copy an attachment ID verbatim from ed materials
+cmu-cli ed download --course-id 12 --id ATTACHMENT_ID --output ./private-ed-files --json
 ```
 
-Replace `12` and `34` with actual Ed IDs. `--id` is a global thread ID, not its
+Materials enumerate recognized references in returned thread/reply bodies, not
+Resources or Lessons. Download rereads this inventory and saves the selected
+attachment anonymously, without forwarding the Ed token. Existing different bytes
+are preserved. See [material scope and download policy](discussion-materials.md).
+
+Replace `12` and `34` with actual Ed IDs. For thread/replies, `--id` is a global thread ID, not its
 course-local number. `--course-id` is required for threads/search and optional for
 thread/replies identity checking. `--page-size` accepts 1–100; `--max-pages`
 accepts 1–1000; both default to 100. Search matches fetched listing title/content/

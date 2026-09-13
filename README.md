@@ -86,10 +86,10 @@ downloads while keeping metadata and indexes. Store exports privately.
 
 | Platform | Useful commands | Setup |
 |---|---|---|
-| **Canvas** | `courses`, `assignments`, `quizzes`, `announcements`, `materials`, `sync` | [Canvas setup](docs/provider-cli.md#canvas) |
-| **Gradescope** | Assignment and submission states through `assignments` | [Course URL + browser session](docs/provider-cli.md#piazza-and-gradescope) |
+| **Canvas** | `grades --source canvas`, `courses`, `assignments`, `quizzes`, `announcements`, `materials`, `sync` | [Canvas setup](docs/provider-cli.md#canvas) |
+| **Gradescope** | `assignments`, `grades --source gradescope` (optional partial feedback) | [Course URL + browser session](docs/provider-cli.md#piazza-and-gradescope) |
 | **Piazza** | Class feed through `posts` | [Class URL + browser session](docs/provider-cli.md#piazza-and-gradescope) |
-| **Ed Discussion** | `ed courses`, `ed threads`, `ed thread`, `ed replies`, `ed search` | [API token](docs/ed.md#authentication-and-origins) |
+| **Ed Discussion** | `ed courses`, `ed threads`, `ed thread`, `ed replies`, `ed search`, `ed materials`, `ed download` | [API token](docs/ed.md#authentication-and-origins) |
 | **SIO** | `sio schedule`, `sio waitlist-history` | [SIO-only browser setup (no Canvas required)](docs/sio.md#browser-setup-no-canvas-configuration-required) |
 
 For example, after setting `CMU_CLI_ED_TOKEN` through your secret-management workflow:
