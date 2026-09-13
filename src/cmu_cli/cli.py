@@ -20,7 +20,7 @@ from . import style
 from .canvas_client import CanvasClient, CanvasError
 from .edge_browser import BrowserError, EdgeBrowser
 from .gradescope_client import GradescopeClient
-from .models import Config, Course, load_config
+from .models import Config, Course, UsageError, load_config
 from .official_materials import public_materials
 from .official_quizzes import public_quizzes
 from .piazza_client import PiazzaClient
@@ -35,10 +35,25 @@ class OperationError(RuntimeError):
     """Sanitized failure without provider exception details in its message."""
 
 
+ERROR_HINTS = {
+    "CONFIG_NOT_FOUND": "Create one with: cmu-cli config init --output cmu-cli.json",
+    "CONFIG_ALREADY_EXISTS": "Choose another path with --output, or edit the existing file.",
+    "CONFIG_INVALID_JSON": "The configuration file is not valid JSON.",
+    "CONFIG_OR_OPERATION_FAILED": (
+        "Check configuration, authorization and service availability; "
+        "no credentials are included in diagnostics."
+    ),
+}
+
+
 @contextmanager
 def sanitized_errors():
     try:
         yield
+    except UsageError:
+        # Authored here from the caller's own input and configuration, so there is
+        # no provider detail to strip and nothing is gained by hiding the reason.
+        raise
     except Exception as exc:  # noqa: BLE001 - sanitize provider failures
         code = (
             "CONFIG_NOT_FOUND"
@@ -581,7 +596,7 @@ def command_open(args: argparse.Namespace, config: Config, client: CanvasClient)
     if args.platform == "canvas" and not course:
         url = config.canvas_base_url
     elif not course:
-        raise ValueError("Piazza and Gradescope require --course.")
+        raise UsageError("Piazza and Gradescope require --course.")
     else:
         url = {
             "canvas": f"{config.canvas_base_url}/courses/{course.canvas_id}",
@@ -589,7 +604,10 @@ def command_open(args: argparse.Namespace, config: Config, client: CanvasClient)
             "gradescope": course.gradescope_url,
         }.get(args.platform)
         if not url:
-            raise ValueError(f"{course.code} has no configured {args.platform} 入口。")
+            raise UsageError(
+                f"{course.code} has no configured {args.platform} URL; "
+                f"add one to the course entry in your configuration."
+            )
     EdgeBrowser().open(url)
     print("Opened configured URL in your default browser.")
     return 0
@@ -931,15 +949,17 @@ def main() -> None:
                     )
                 code = 3
             raise SystemExit(code)
+    except UsageError as exc:
+        if getattr(args, "json", False):
+            print_json(None, error={"code": "USAGE", "message": str(exc)})
+        print(f"cmu-cli: {exc}", file=sys.stderr)
+        raise SystemExit(2) from None
     except OperationError as exc:
         code = str(exc)
-        error = {
-            "code": code,
-            "message": "Check configuration, authorization and service availability; no credentials are included in diagnostics.",
-        }
+        error = {"code": code, "message": ERROR_HINTS[code]}
         if getattr(args, "json", False):
             print_json(None, error=error)
-        print("cmu-cli: " + code, file=sys.stderr)
+        print(f"cmu-cli: {code}\n  {ERROR_HINTS[code]}", file=sys.stderr)
         raise SystemExit(2) from None
 
 
