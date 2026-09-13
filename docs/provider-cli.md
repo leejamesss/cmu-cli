@@ -37,6 +37,38 @@ and signed URLs. Query commands do not write course files.
 
 ## Piazza and Gradescope
 
+Keep the **full configuration from `config init`**, including `canvas_base_url`,
+`storage_root`, `term`, and each course's `code`, positive `canvas_id`, `name`, and
+`directory`. Only Ed and SIO accept minimal provider-only configuration. Piazza
+`posts` needs no Canvas login, but still requires this configuration structure;
+`assignments` also initializes Canvas and requires its authorization.
+
+This complete synthetic example can be saved as `cmu-cli.json` and checked with
+`cmu-cli --config cmu-cli.json config validate` offline. Replace the example origin,
+IDs, storage path, and cookie file before live use; remove unused platform URLs.
+
+```json
+{
+  "canvas_base_url": "https://canvas.example.invalid",
+  "storage_root": "./private-coursework",
+  "term": "Example-Term",
+  "courses": [{
+    "code": "DEMO-101",
+    "canvas_id": 123,
+    "name": "Example Course",
+    "directory": "demo-101",
+    "piazza_url": "https://piazza.com/class/example_network",
+    "gradescope_url": "https://www.gradescope.com/courses/456"
+  }],
+  "browser_auth": {
+    "enabled": true,
+    "browser": "edge",
+    "cookie_file": "/synthetic/profile/Cookies",
+    "hosts": ["canvas.example.invalid", "piazza.com", "www.gradescope.com"]
+  }
+}
+```
+
 Follow [browser-session setup](browser-auth.md), then set each course's
 `piazza_url` to its exact `https://piazza.com/class/NETWORK_ID` URL and
 `gradescope_url` to its exact `https://www.gradescope.com/courses/COURSE_ID` URL.

@@ -7,6 +7,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 import venv
 from pathlib import Path
@@ -14,6 +15,7 @@ from urllib.parse import unquote, urlsplit
 
 
 def check_links(root):
+    root = root.resolve()
     checked = 0
     for page in root.rglob("*.md"):
         text = page.read_text(encoding="utf-8")
@@ -26,6 +28,8 @@ def check_links(root):
             if parts.scheme or parts.netloc:
                 continue
             dest = (page.parent / unquote(parts.path)).resolve() if parts.path else page
+            if not dest.is_relative_to(root):
+                raise AssertionError(f"{page}: link escapes archive: {target}")
             if not dest.exists():
                 raise AssertionError(f"{page}: missing {target}")
             if parts.fragment and dest.suffix == ".md":
@@ -38,6 +42,39 @@ def check_links(root):
                     raise AssertionError(f"{page}: missing anchor {target}")
             checked += 1
     return checked
+
+
+def check_sdist(archive_path, destination):
+    """Extract only regular files/directories inside one package root."""
+    from pathlib import PurePosixPath
+
+    with tarfile.open(archive_path) as archive:
+        members = archive.getmembers()
+        roots = set()
+        for member in members:
+            path = PurePosixPath(member.name)
+            if (
+                path.is_absolute()
+                or ".." in path.parts
+                or "\\" in member.name
+                or not path.parts
+                or not (member.isfile() or member.isdir())
+            ):
+                raise AssertionError("Unsafe sdist member")
+            roots.add(path.parts[0])
+        if len(roots) != 1:
+            raise AssertionError("sdist must have one package root")
+        destination.mkdir(parents=True, exist_ok=False)
+        for member in members:
+            target = destination / member.name
+            if member.isdir():
+                target.mkdir(parents=True, exist_ok=True)
+            else:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                with archive.extractfile(member) as source, target.open("xb") as output:
+                    shutil.copyfileobj(source, output)
+    extracted = destination / roots.pop()
+    return extracted, check_links(extracted)
 
 
 def main():
@@ -111,6 +148,18 @@ def main():
         "metadata",
         [sys.executable, "-m", "twine", "check", *sorted((output / "dist").iterdir())],
     )
+    sdist = next((output / "dist").glob("*.tar.gz"))
+    extracted, sdist_links = check_sdist(sdist, output / "sdist")
+    print(f"sdist documentation links: {sdist_links} passed", flush=True)
+    venv.create(output / "sdist-env", with_pip=True)
+    sdist_python = output / "sdist-env/bin/python"
+    run("sdist-install", [sdist_python, "-m", "pip", "install", sdist])
+    run("sdist-dependency-check", [sdist_python, "-m", "pip", "check"])
+    run("sdist-demo", [sdist_python, "-m", "cmu_cli", "demo", "--json"])
+    run(
+        "sdist-links",
+        [sdist_python, extracted / "scripts/release_check.py", "--links-only"],
+    )
     venv.create(output / "env", with_pip=True)
     python = output / "env/bin/python"
     wheel = next((output / "dist").glob("*.whl"))
@@ -151,6 +200,45 @@ print('Only cmu-cli distribution/entry point and cmu_cli package shipped')
             wheel,
         ],
     )
+    run(
+        "wheel-browser-extra-absent",
+        [
+            python,
+            "-c",
+            "import importlib.util; assert importlib.util.find_spec('browser_cookie3') is None",
+        ],
+    )
+    (output / "missing-browser.json").write_text(
+        json.dumps(
+            {
+                "browser_auth": {
+                    "enabled": True,
+                    "browser": "edge",
+                    "cookie_file": "/synthetic/profile/Cookies",
+                    "hosts": ["s3.andrew.cmu.edu"],
+                }
+            }
+        )
+    )
+    for mode in ("plain", "json"):
+        label = "wheel-missing-browser-" + mode
+        run(
+            label,
+            [
+                python,
+                "-m",
+                "cmu_cli",
+                "--config",
+                "missing-browser.json",
+                "sio",
+                "schedule",
+                *(["--json"] if mode == "json" else []),
+            ],
+            expected=2,
+        )
+        diagnostic = (output / (label + ".log")).read_text()
+        assert "BROWSER_DEPENDENCY_MISSING" in diagnostic
+        assert "cmu-cli[browser] @ https://github.com/leejamesss/cmu-cli/" in diagnostic
     executable = output / "env/bin/cmu-cli"
     for label, command in [
         ("help", ["--help"]),
@@ -185,6 +273,7 @@ print('Only cmu-cli distribution/entry point and cmu_cli package shipped')
         source / "tests", output / "tests", ignore=shutil.ignore_patterns("__pycache__")
     )
     shutil.copytree(source / "docs", output / "docs")
+    shutil.copytree(source / "scripts", output / "scripts")
     run(
         "wheel-tests", [python, "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
     )

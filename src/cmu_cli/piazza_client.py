@@ -10,6 +10,7 @@ from urllib.parse import urlsplit
 
 from .web_session import (
     MAX_DOCUMENT_BYTES,
+    BrowserDependencyMissing,
     SessionError,
     bounded_content,
     browser_cookie_session,
@@ -68,6 +69,8 @@ class PiazzaClient:
             if not isinstance(data, dict) or data.get("error") or "result" not in data:
                 raise PiazzaError("Piazza API rejected the read request")
             return data["result"]
+        except BrowserDependencyMissing:
+            raise
         except (SessionError, ValueError, UnicodeError):
             raise PiazzaError(
                 "Piazza read failed; check browser authentication and service availability"

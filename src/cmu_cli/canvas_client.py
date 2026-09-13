@@ -10,6 +10,7 @@ import requests
 
 from .web_session import (
     MAX_DOCUMENT_BYTES,
+    BrowserDependencyMissing,
     CrossOriginRedirect,
     SessionError,
     bounded_content,
@@ -52,6 +53,8 @@ class CanvasClient:
                 self.session, self.auth_method = canvas_api_session(
                     self.base_url, browser_auth
                 )
+        except BrowserDependencyMissing:
+            raise
         except SessionError as exc:
             raise CanvasError(str(exc)) from None
 

@@ -12,6 +12,7 @@ from bs4 import BeautifulSoup
 from .models import Course
 from .web_session import (
     MAX_DOCUMENT_BYTES,
+    BrowserDependencyMissing,
     SessionError,
     bounded_content,
     browser_cookie_session,
@@ -63,6 +64,8 @@ class GradescopeClient:
                 )
             document = bounded_content(response, MAX_DOCUMENT_BYTES).decode("utf-8")
             return self.parse_assignments(course, document)
+        except BrowserDependencyMissing:
+            raise
         except (SessionError, UnicodeError):
             raise GradescopeError(
                 "Gradescope read failed; check selected browser login and configured course"
