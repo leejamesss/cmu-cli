@@ -37,7 +37,7 @@ use structured JSON in your own scripts, and keep Canvas materials organized loc
 
 One command-line interface, **not one shared login or universal search**. Integrations
 have different access requirements and coverage; see [what works where](#what-works-where)
-and [release status](#release-status).
+and [usage notes](#usage-notes).
 
 ## Install
 
@@ -132,8 +132,7 @@ cmu-cli --config cmu-cli.json sio waitlist-history --json
 `DEMO-101` and Ed ID `12` are placeholders, not live course data. Ed search matches only
 fetched listing text, not replies or unfetched thread detail. SIO may require
 caller-supplied rendered HTML through its Python parsers; it does not capture the browser
-page for you. These command forms are covered by offline CLI tests, **not a claim of
-successful live account access**.
+page for you; see the [SIO setup guide](docs/sio.md) for details.
 
 ## What works where
 
@@ -179,21 +178,11 @@ yourself, and is limited to hosts you list. See [`docs/auth.md`](docs/auth.md) a
 [`SECURITY.md`](SECURITY.md) — and note that the MIT license grants no access to any
 service, nor rights to course or student data.
 
-## Release status
+## Usage notes
 
-**v0.1.0 is an early source release, not a fully live-verified integration suite.** Start
-with the reproducible offline demo, then enable only the providers you are authorized to
-use.
-
-| Evidence | What it establishes |
-|---|---|
-| Offline demo and source/installed-wheel tests | Synthetic workflows, CLI contracts, storage behavior and tested security cases — not live service compatibility |
-| SIO authorized rendered-page snapshots | Schedule and waitlist-history parser verification; authenticated HTTP access/rendering remains unverified |
-| Ed protocol research and synthetic tests | Implemented token-based read adapter; live-account behavior remains unverified |
-| Canvas, Piazza and Gradescope adapters | Implemented authorized read paths; offline checks do not certify your account, permissions or institution's deployment |
-
-Tests and the demo use synthetic data, not copied live student records. See the detailed
-[SIO evidence](docs/sio.md#verification) and [Ed evidence](docs/ed.md#verification).
+Configure each platform with your own account using the [provider setup guide](docs/provider-cli.md).
+For platform-specific setup, known limitations, and testing details, see the
+[SIO guide](docs/sio.md) and [Ed guide](docs/ed.md).
 
 **Read coursework; do not change it.** No assignment submission, grade changes,
 discussion posting, enrollment or waitlist actions are provided. `sync` writes to your
