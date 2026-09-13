@@ -97,6 +97,39 @@ def limited(rows, limit):
     return rows
 
 
+def incomplete_report(warnings: list[dict[str, Any]]) -> list[str]:
+    """Name what was missing, rather than only that something was.
+
+    A per-course source failure is invisible in the plain output: the rows that did
+    arrive print normally and a single trailing line says results are incomplete. On
+    an eight-course account five courses can fail a quizzes fetch and the reader has
+    no way to tell which, so an empty result reads as "no quizzes" instead of "not
+    read". Group the failures by source so the line stays short when many courses
+    fail the same way.
+    """
+    unavailable: dict[str, list[str]] = {}
+    truncated = []
+    for warning in warnings:
+        if warning.get("code") == "SOURCE_UNAVAILABLE":
+            courses = unavailable.setdefault(warning.get("source") or "unknown", [])
+            course = warning.get("course")
+            if course and course not in courses:
+                courses.append(course)
+        elif warning.get("code") == "TRUNCATED":
+            truncated.append(warning)
+    lines = ["cmu-cli: incomplete results"]
+    for source, courses in unavailable.items():
+        scope = f" for {', '.join(courses)}" if courses else ""
+        lines.append(f"  {source} unavailable{scope}")
+    for warning in truncated:
+        lines.append(
+            f"  showing {warning.get('limit')} of "
+            f"{warning.get('total_before_limit')} rows (--limit)"
+        )
+    lines.append("  use --json for full source status")
+    return lines
+
+
 def print_json(data: Any, error=None) -> None:
     warnings = _CONTEXT["warnings"]
     status = "error" if error else ("partial" if warnings else "ok")
@@ -926,7 +959,7 @@ def main() -> None:
             if _CONTEXT["warnings"]:
                 if not getattr(args, "json", False):
                     print(
-                        "cmu-cli: incomplete results; use --json for source status",
+                        "\n".join(incomplete_report(_CONTEXT["warnings"])),
                         file=sys.stderr,
                     )
                 code = 3
