@@ -42,6 +42,31 @@ shared loader requires `enabled: true`, a host allowlist including
 `chrome`. A disabled configuration fails closed with sanitized `SIOError`.
 No browser profile or cookies were read during this implementation's verification.
 
+### Structure confirmed against the live pages
+
+On 2026-09-12 an authorised student session was used to confirm that the selectors
+this parser depends on exist and carry the expected labels. `tests/test_sio_live_shape.py`
+encodes the observed structure with synthetic content; no page content was retained.
+
+| Selector | Schedule page | Waitlist page |
+| --- | --- | --- |
+| `table.course-list-tbl` / `table.schedule-waitlist-tbl` | present, once | present, once |
+| `#semester-code-select` / `#semesters-select` | present | present |
+| `.grid-hdr` | wraps every header cell | wraps every header cell |
+| `.display-block` | wraps each instructor | — |
+
+Two details are worth recording because a parser can plausibly get them wrong and
+neither is visible from a screenshot:
+
+- the header row and the data rows carry **different** `data-title` values. The header
+  says `Title / Number & Section`; every data row says `Course`. Keying off the header
+  finds no course cell in any row.
+- each data row leads with `<th scope="row">`, not `<td>`, and ends with an unlabelled
+  details link. Collecting only `td` drops the course cell and shifts every remaining
+  value one column left.
+
+The current parser handles both; the fixtures exist so that stays true.
+
 ## Output contract
 
 Results include `source`, `status`, `complete`, `warnings`, `provenance`, `view`,
