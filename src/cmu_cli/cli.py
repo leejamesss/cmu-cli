@@ -792,6 +792,23 @@ def ed_identifier(value):
         raise argparse.ArgumentTypeError(str(exc)) from None
 
 
+# argparse lists a subcommand in the help body only when add_parser was given a help
+# string. These were built in loops without one, so the commands this tool exists for
+# -- assignments, courses, sync -- appeared in the usage line and nowhere else.
+COMMAND_HELP = {
+    "status": "Report Canvas authentication and per-course platform configuration",
+    "courses": "List configured courses and their Canvas availability",
+    "assignments": "Read Canvas and Gradescope assignments with submission state",
+    "quizzes": "Read Canvas quizzes and their deadlines",
+    "platforms": "Show the configured Canvas, Piazza and Gradescope links",
+    "materials": "List Canvas files and already-synced local materials",
+    "announcements": "Read Canvas course announcements",
+    "posts": "Read configured Piazza class feeds",
+    "sync": "Download Canvas materials and write local Markdown indexes",
+    "open": "Open a configured course link in your default browser",
+}
+
+
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(
         prog="cmu-cli",
@@ -863,25 +880,22 @@ def parser() -> argparse.ArgumentParser:
     )
     demo.add_argument("--json", action="store_true")
     for name in ["status", "courses"]:
-        command = commands.add_parser(name)
+        command = commands.add_parser(name, help=COMMAND_HELP[name])
         command.add_argument("--json", action="store_true")
     for name in ["assignments", "quizzes", "platforms"]:
-        command = commands.add_parser(name)
+        command = commands.add_parser(name, help=COMMAND_HELP[name])
         command.add_argument("--course")
         command.add_argument("--json", action="store_true")
     for name in ["materials", "announcements", "posts"]:
-        command = commands.add_parser(
-            name,
-            help="Read configured Piazza class feeds" if name == "posts" else None,
-        )
+        command = commands.add_parser(name, help=COMMAND_HELP[name])
         command.add_argument("--course")
         command.add_argument("--limit", type=positive_limit, default=None)
         command.add_argument("--json", action="store_true")
-    sync = commands.add_parser("sync")
+    sync = commands.add_parser("sync", help=COMMAND_HELP["sync"])
     sync.add_argument("--course")
     sync.add_argument("--metadata-only", action="store_true")
     sync.add_argument("--json", action="store_true")
-    open_command = commands.add_parser("open")
+    open_command = commands.add_parser("open", help=COMMAND_HELP["open"])
     open_command.add_argument("platform", choices=["canvas", "piazza", "gradescope"])
     open_command.add_argument("--course")
     return root
