@@ -11,6 +11,53 @@ cmu-cli --config cmu-cli.json sio probe --json
 Configure the selected browser session as described below. These commands do not
 register, drop, confirm or modify any course. History is not a current queue.
 
+## Browser setup (no Canvas configuration required)
+
+Install the optional cookie loader in your CLI virtual environment:
+
+```sh
+python -m pip install 'cmu-cli[browser] @ https://github.com/leejamesss/cmu-cli/archive/refs/heads/main.zip'
+cmu-cli config browsers
+```
+
+Sign in to SIO normally in your selected Edge or Chrome profile, including MFA.
+`config browsers` lists candidate database paths without reading cookies; select
+the profile you actually used. See [browser-session setup](browser-auth.md) for
+manual profile selection and OS permissions. Do not paste credentials into config.
+
+Save this minimal object as `sio.json`, replacing the synthetic absolute path with
+the selected profile's `Cookies` or `Network/Cookies` path:
+
+```json
+{
+  "browser_auth": {
+    "enabled": true,
+    "browser": "edge",
+    "cookie_file": "/absolute/path/to/selected/profile/Cookies",
+    "hosts": ["s3.andrew.cmu.edu"]
+  }
+}
+```
+
+For Chrome, set `browser` to `chrome`. No Canvas URL, course list, storage root,
+Ed token, Playwright installation, or `sso` configuration is needed.
+`config validate` and `doctor` expect a full Canvas config, not this minimal file.
+
+```sh
+cmu-cli --config sio.json sio schedule --json
+cmu-cli --config sio.json sio waitlist-history --json
+```
+
+An existing Edge Default session was verified with both commands (see
+[verification](#verification)); this is not a guarantee for every browser profile.
+If cookies are unavailable or expired, or `auth_redirect_blocked` is returned,
+check the selected profile and sign in normally. Some browser sessions remain
+in memory and are unavailable to the on-disk loader even after login. Repeated
+login is not a guaranteed fix. Do not add login/MFA hosts to bypass the redirect
+boundary. For `rendered_snapshot_required`, use an authorized HTML capture through
+the Python APIs below; the CLI does not capture pages or perform fresh SSO login.
+Keep JSON output private: schedules and history contain academic records.
+
 ## Python APIs
 
 ```python
@@ -40,7 +87,8 @@ cookies or the network. Construction has no credential side effects. The existin
 shared loader requires `enabled: true`, a host allowlist including
 `s3.andrew.cmu.edu`, an explicit absolute profile `cookie_file`, and `edge` or
 `chrome`. A disabled configuration fails closed with sanitized `SIOError`.
-No browser profile or cookies were read during this implementation's verification.
+Initial parser verification did not read browser cookies; the later explicitly
+authorized installed-CLI HTTP check is documented under [verification](#verification).
 
 ### Structure confirmed against the live pages
 
@@ -116,8 +164,9 @@ reject unrelated views. Caller-supplied HTML is not proof of URL or freshness:
 callers must verify the exact route before capture. Provenance URLs identify the
 expected source, not an authenticated attestation of arbitrary HTML input.
 
-Authenticated HTTP rendering has not been live-verified. A server response may
-contain only a shell; in that case use a user-authorized rendered HTML capture.
+Authenticated HTTP rendering was live-verified for one existing Edge session on
+2026-09-13. Other sessions may return only a shell; in that case use a
+user-authorized rendered HTML capture.
 No undocumented JSON endpoints, asset paths, GET query parameters, or business
 requests are guessed. Static HTML versus rendered HTML is distinguished by the
 presence of recognized rows, not HTTP 200 alone.
@@ -156,3 +205,20 @@ rows with all supported schedule fields and one of one history rows. The history
 confirmation cell was blank and preserved as null. Both selected terms were
 available; no parser warnings were produced. This verifies captured HTML parsing,
 not live authenticated HTTP transport or current queue status.
+
+Separately, on 2026-09-13, an installed, unmodified main build at
+`864986bfe3b76d8f58e84e3afa70c700e8e05c25` with the `browser` extra read an
+explicitly authorized existing Edge Default session over HTTPS. `sio schedule`
+returned three rows and `sio waitlist-history` returned one row; both exited 0,
+reported `status: ok`, no warnings, and `provenance.method: https_get`.
+Only aggregate evidence is recorded here, not account records or profile paths.
+This verifies these two selected-semester reads, not fresh login, MFA automation,
+Chrome support in that live environment, session renewal, or current queue status.
+
+Thanks to [@HorizonWind2004](https://github.com/HorizonWind2004) for raising the
+SIO session-persistence problem in [#19](https://github.com/leejamesss/cmu-cli/pull/19),
+which prompted this transport check and setup clarification. The proposed custom
+SSO transport in #19 and its draft hardening in
+[#21](https://github.com/leejamesss/cmu-cli/pull/21) are not shipped by this update.
+Their new login flow remains outside this verification; a missing on-disk session
+in one profile does not establish that the existing transport cannot work.

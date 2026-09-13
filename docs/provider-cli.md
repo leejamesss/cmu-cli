@@ -92,8 +92,10 @@ These read the selected semester schedule and historical waitlist entries—not
 current queue positions or enrollment actions. If you receive
 `rendered_snapshot_required`, use the Python parsers with your own authorized
 rendered HTML capture as described in the [guide](sio.md#python-apis). The CLI does
-not capture the browser page for you. Authenticated HTTP rendering has not been
-live-verified; parser fixtures cover observed page structures.
+not capture the browser page for you. Both authenticated HTTP reads were verified
+on 2026-09-13 with an existing Edge session; this does not verify fresh login or
+every browser profile. The [minimal SIO-only configuration](sio.md#browser-setup-no-canvas-configuration-required)
+needs no Canvas setup. See [verification scope](sio.md#verification).
 
 `cmu-cli sio probe --json` is a readiness diagnostic, not a schedule query. Its
 returned results are always incomplete (exit 3), including HTTP 200; transport

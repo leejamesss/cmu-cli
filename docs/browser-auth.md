@@ -8,6 +8,8 @@ python -m pip install 'cmu-cli[browser] @ https://github.com/leejamesss/cmu-cli/
 ```
 
 If you have not created a config yet, run `cmu-cli config init --output cmu-cli.json`.
+For SIO alone, use the [minimal SIO config](sio.md#browser-setup-no-canvas-configuration-required)
+instead; no Canvas configuration is required.
 
 Log in normally in your chosen browser, including any MFA. Then list the cookie
 databases that exist at the standard per-browser locations and pick the profile you
