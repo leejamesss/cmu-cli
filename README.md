@@ -12,7 +12,6 @@
   <a href="https://github.com/leejamesss/cmu-cli/actions/workflows/ci.yml"><img alt="Offline core checks" src="https://github.com/leejamesss/cmu-cli/actions/workflows/ci.yml/badge.svg?branch=main"></a>
   <img alt="Python" src="https://img.shields.io/badge/python-3.10%2B-blue">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-green">
-  <img alt="Status" src="https://img.shields.io/badge/status-developer%20preview-orange">
 </p>
 
 A deadline in Canvas. A clarification on Piazza or Ed. A submission in Gradescope.
