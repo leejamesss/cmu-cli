@@ -34,6 +34,7 @@ def test_materials_command_all_categories_and_cache(tmp_path):
     (cache / "old.pdf").write_bytes(b"fixture")
     client = Mock()
     client.files.return_value = []
+    client.module_files.return_value = []
     config = SimpleNamespace(storage_root=tmp_path, term="term", courses=[c])
     with contextlib.redirect_stdout(io.StringIO()) as out:
         cli.command_materials(

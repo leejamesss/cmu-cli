@@ -603,6 +603,22 @@ def sync_course(
                 item.get("display_name") or item.get("filename") or "file"
             )
             if Path(filename).suffix.lower() not in DOWNLOADABLE_EXTENSIONS:
+                downloads.append(
+                    {
+                        "name": filename,
+                        "status": "skipped",
+                        "reason": "unsupported_extension",
+                    }
+                )
+                continue
+            if item.get("locked_for_user") or item.get("hidden_for_user"):
+                downloads.append(
+                    {
+                        "name": filename,
+                        "status": "skipped",
+                        "reason": "not_available_to_user",
+                    }
+                )
                 continue
             result = sync_canvas_file(item, root, download_manifest, fetch_bytes)
             downloads.append({"name": filename, **result})

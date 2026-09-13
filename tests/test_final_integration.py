@@ -77,11 +77,12 @@ def test_cli_partial_files_skip_sync(monkeypatch, capsys, tmp_path):
     assert code == 3 and result["status"] == "partial" and result["complete"] is False
     assert result["data"] == []
     assert result["sources"] == [
-        {"source": "canvas.files", "course": "A", "status": "error"}
+        {"source": "canvas.files", "course": "A", "status": "error"},
+        {"source": "canvas.module_files", "course": "A", "status": "error"},
     ]
     assert result["warnings"][0]["code"] == "SOURCE_UNAVAILABLE"
     assert not (tmp_path / "workspace").exists()
-    assert len(adapter.seen) == 2
+    assert len(adapter.seen) == 3
     assert "private server detail" not in json.dumps(result)
 
 
@@ -101,7 +102,14 @@ def test_cli_sync_preserves_unmanaged_file(monkeypatch, capsys, tmp_path):
         capsys,
         tmp_path,
         ["sync"],
-        [payload([]), payload([item]), payload([]), payload([]), (200, {}, b"REMOTE")],
+        [
+            payload([]),
+            payload([item]),
+            payload([]),
+            payload([]),
+            payload([]),
+            (200, {}, b"REMOTE"),
+        ],
     )
     assert code == 0 and result["complete"] is True
     assert destination.read_bytes() == b"USER"
@@ -112,7 +120,7 @@ def test_cli_sync_preserves_unmanaged_file(monkeypatch, capsys, tmp_path):
     )
     assert result["data"][0]["files"] == 1
     assert len(result["data"][0]["downloads"]) == 1
-    assert len(adapter.seen) == 5
+    assert len(adapter.seen) == 6
 
 
 def test_cli_deadline_semantics(monkeypatch, capsys, tmp_path):

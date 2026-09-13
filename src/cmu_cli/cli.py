@@ -18,6 +18,7 @@ from dateutil.parser import parse as parse_date
 
 from . import style
 from .canvas_client import CanvasClient, CanvasError
+from .canvas_grades import command_grades as command_grades
 from .edge_browser import BrowserError, EdgeBrowser
 from .gradescope_client import GradescopeClient
 from .models import Config, Course, UsageError, load_config
@@ -193,6 +194,21 @@ def course_files(client: CanvasClient, course: Course) -> list[dict[str, Any]]:
             "canvas.files", course.code, lambda: client.files(course.canvas_id)
         )
     ]
+    if hasattr(client, "module_files"):
+        module_rows = fetch(
+            "canvas.module_files",
+            course.code,
+            lambda: client.module_files(course.canvas_id),
+        )
+        by_id = {str(item["id"]): item for item in canvas_rows}
+        for item in module_rows:
+            by_id[str(item["id"])] = {
+                **by_id.get(str(item["id"]), {}),
+                **item,
+                "source": "canvas",
+                "course": course.code,
+            }
+        canvas_rows = list(by_id.values())
     return canvas_rows + (
         fetch(
             "public.materials",
@@ -532,6 +548,12 @@ def command_materials(
                     "updated_at_raw": item.get("updated_at"),
                     "url": item.get("url"),
                     "path": None,
+                    "kind": "teaching_file",
+                    "media_type": item.get("content-type"),
+                    "availability": "locked"
+                    if item.get("locked_for_user")
+                    else ("hidden" if item.get("hidden_for_user") else "unknown"),
+                    "module_ids": item.get("module_ids", []),
                 }
             )
         for path in local_material_paths(course_root(config, course)):
@@ -949,6 +971,7 @@ COMMAND_HELP = {
     "status": "Report Canvas authentication and per-course platform configuration",
     "courses": "List configured courses and their Canvas availability",
     "assignments": "Read Canvas and Gradescope assignments with submission state",
+    "grades": "Read own Canvas grades and enrollment totals (not SIO)",
     "quizzes": "Read Canvas quizzes and their deadlines",
     "platforms": "Show the configured Canvas, Piazza and Gradescope links",
     "materials": "List Canvas files and already-synced local materials",
@@ -967,6 +990,11 @@ def parser() -> argparse.ArgumentParser:
     root.add_argument("--config", type=Path, help="User JSON config path")
     root.add_argument("--version", action="version", version="cmu-cli 0.1.0")
     commands = root.add_subparsers(dest="command", required=True)
+    grades = commands.add_parser("grades", help=COMMAND_HELP["grades"])
+    grades.add_argument("--source", choices=["canvas"], default="canvas")
+    grades.add_argument("--course")
+    grades.add_argument("--details", action="store_true")
+    grades.add_argument("--json", action="store_true")
     ed = commands.add_parser(
         "ed", help="Read-only Ed API token queries (no Canvas required)"
     )
@@ -1196,6 +1224,7 @@ def main() -> None:
                     "status",
                     "courses",
                     "assignments",
+                    "grades",
                     "quizzes",
                     "materials",
                     "announcements",

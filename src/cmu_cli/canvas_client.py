@@ -178,10 +178,46 @@ class CanvasClient:
         )
 
     def modules(self, course_id: int) -> list[dict[str, Any]]:
-        return self.get(
-            f"/api/v1/courses/{course_id}/modules",
-            {"per_page": 100, "include[]": ["items", "content_details"]},
+        from .canvas_grades import identifier, unique
+
+        identifier(course_id)
+        modules = unique(
+            self.get(
+                f"/api/v1/courses/{course_id}/modules",
+                {"per_page": 100, "include[]": ["items", "content_details"]},
+            )
         )
+        for module in modules:
+            items = module.get("items")
+            count = module.get("items_count")
+            if not isinstance(items, list) or count is None or len(items) != count:
+                items = self.get(
+                    f"/api/v1/courses/{course_id}/modules/{module['id']}/items",
+                    {"per_page": 100, "include[]": ["content_details"]},
+                )
+            items = unique(items)
+            if count is not None and (type(count) is not int or count != len(items)):
+                raise CanvasError("Canvas module item count mismatch")
+            module["items"] = items
+        return modules
+
+    def module_files(self, course_id: int) -> list[dict[str, Any]]:
+        from .canvas_grades import identifier
+
+        rows = {}
+        for module in self.modules(course_id):
+            for item in module["items"]:
+                if item.get("type") != "File":
+                    continue
+                file_id = identifier(item.get("content_id"))
+                if file_id not in rows:
+                    row = self.get(f"/api/v1/courses/{course_id}/files/{file_id}")
+                    if not isinstance(row, dict) or row.get("id") != file_id:
+                        raise CanvasError("Canvas file identity mismatch")
+                    rows[file_id] = {**row, "module_ids": []}
+                if module["id"] not in rows[file_id]["module_ids"]:
+                    rows[file_id]["module_ids"].append(module["id"])
+        return list(rows.values())
 
     def tabs(self, course_id: int) -> list[dict[str, Any]]:
         return self.get(f"/api/v1/courses/{course_id}/tabs", {"per_page": 100})
