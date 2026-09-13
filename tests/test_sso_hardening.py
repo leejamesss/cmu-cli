@@ -396,6 +396,56 @@ def test_separate_cleanup_does_not_skip_browser(tmp_path, monkeypatch):
     assert context.closed and browser.closed
 
 
+@pytest.mark.parametrize("kind", ["stylesheet", "image", "font"])
+@pytest.mark.parametrize("login", [False, True])
+def test_passive_resources_never_transmit_and_only_reads_tolerate_absence(
+    tmp_path, kind, login
+):
+    context = FakeContext()
+    _, blocked = sso.SsoSession(tmp_path / "state.json")._guard(context, login=login)
+    events = []
+    request = SimpleNamespace(
+        url="https://untrusted.invalid/resource?synthetic=private",
+        method="GET",
+        resource_type=kind,
+        frame=context.page.main_frame,
+    )
+    context.callback(
+        SimpleNamespace(
+            request=request,
+            abort=lambda: events.append("abort"),
+            fetch=lambda **kw: pytest.fail("Passive resource transmitted"),
+            fulfill=lambda **kw: pytest.fail("Passive resource fulfilled"),
+        )
+    )
+    assert events == ["abort"]
+    assert bool(blocked) is login
+
+
+@pytest.mark.parametrize(
+    "kind,method",
+    [("script", "GET"), ("fetch", "POST"), ("document", "GET"), ("image", "POST")],
+)
+def test_read_passive_suppression_does_not_weaken_active_guard(tmp_path, kind, method):
+    context = FakeContext()
+    _, blocked = sso.SsoSession(tmp_path / "state.json")._guard(context, login=False)
+    events = []
+    context.callback(
+        SimpleNamespace(
+            request=SimpleNamespace(
+                url="https://untrusted.invalid/write",
+                method=method,
+                resource_type=kind,
+                frame=context.page.main_frame,
+            ),
+            abort=lambda: events.append("abort"),
+            fetch=lambda **kw: pytest.fail("Unapproved resource transmitted"),
+        )
+    )
+    assert events == ["abort"]
+    assert blocked
+
+
 def test_routing_revalidates_synthetic_redirect_and_prevents_script_posts(tmp_path):
     session = sso.SsoSession(tmp_path / "state.json")
     context = FakeContext()

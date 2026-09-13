@@ -206,6 +206,16 @@ class SsoSession:
             request = route.request
             response = None
             try:
+                # Read parsing needs markup only. Suppress passive presentation
+                # requests without sending them or treating their absence as an
+                # authentication failure. Never relax navigation/script/write rules.
+                if (
+                    not login
+                    and request.method == "GET"
+                    and request.resource_type in {"stylesheet", "image", "font"}
+                ):
+                    route.abort()
+                    return
                 if (
                     not primary
                     or request.frame != primary[0].main_frame
