@@ -13,6 +13,8 @@
 
 - [JSON envelope, payloads and exit codes](json-contract.md) · [JSON Schema](result.schema.json)
 - [Ed commands, authentication and search scope](ed.md)
+- [Ed attachment listing/download and Piazza parser limits](discussion-materials.md)
+- [Gradescope grades and partial feedback](provider-expansion-grades.md)
 - [SIO schedule, history and rendered-HTML fallback](sio.md)
 - [Architecture and Python modules](architecture.md)
 - [Contribute a fix and run the release checks](../CONTRIBUTING.md)

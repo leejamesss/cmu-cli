@@ -1,15 +1,35 @@
 # Gradescope grade discovery and SIO evidence gate
 
-This is a standalone provider API, **not an integrated CLI command or local-tool
-upgrade**. No authenticated account, browser, cookies, report generation or
-student record was accessed during development. All tests use synthetic HTML and
-fake transport responses. No live grade, rubric completeness, or download claim
-is made.
+Read the configured student assignment table with existing explicit browser auth:
+
+```sh
+cmu-cli --config cmu-cli.json grades --source gradescope --course DEMO-101 --json
+cmu-cli --config cmu-cli.json grades --source gradescope --course DEMO-101 --details --json
+```
+
+Use the normal full course configuration and exact `gradescope_url` described in
+[provider setup](provider-cli.md#piazza-and-gradescope). No Canvas session is opened.
+Omit `--course` to read configured courses; missing Gradescope configuration is
+reported unavailable, not silently skipped. Scores and maxima come only from
+unambiguous released decimal pairs; zero remains zero and unknown remains null.
+Plain output shows score, maximum, release and submission state. JSON uses the
+common envelope with `data.assignments`, empty `data.enrollments` and explicit scope.
+
+`--details` follows deduplicated, observed same-course student links only. Every
+request and redirect is pinned to its exact authorized URL, so login/other-course
+redirects fail before the next request. Rendered feedback is always partial
+(exit 3); complete question associations/all attempts are not available. Links
+labeled Download Graded Copy are discovery only: no grade-artifact download is
+implemented. Failed courses retain other courses' results and exit 3.
+
+No authenticated account, browser database, report generation or student record
+was accessed during development. Tests use synthetic HTML/transport responses;
+this does not establish live grade or rubric completeness.
 
 ## Implemented Python APIs
 
 Module: `cmu_cli.gradescope_details`. Results are plain dictionaries, not a second
-canonical model. The integrator must adapt these to the final shared contract.
+canonical model. The CLI wraps them in the common versioned result envelope.
 
 - `parse_score(status: str) -> dict`: `score`, `points_possible` (float or null),
   `release_state` (`released`, `not_released`, `unknown`). Only a complete decimal
@@ -110,9 +130,8 @@ live navigation, then record sanitized evidence of:
 
 ## Integration and live gate
 
-Wire the standalone course parser/reader through the parent's canonical grade
-contract and explicit auth. Wire local-tool parity separately. Do not change the
-existing assignment parser's result schema implicitly. Detail parsing remains
-partial even after wiring until consented sanitized student DOM verifies exact
-question associations, comments and artifact availability. Test the installed
-wheel and integrated dispatcher before any user-facing completion claim.
+CLI integration preserves the existing assignment parser schema. Detail parsing
+remains partial until consented sanitized student DOM verifies exact question
+associations, comments and artifact availability. Source and installed-wheel CLI
+fixtures test dispatch, unknown/zero values, authorization, exact-link restrictions
+and partial reporting; they do not establish live account success.

@@ -182,7 +182,9 @@ def read_course_grades(session, course: Course) -> list[dict]:
     """One bounded course GET with caller-authorized session, no cookie discovery."""
     base = _course_url(course)
     try:
-        response = safe_request(session, base, origin=https_origin(base))
+        response = safe_request(
+            session, base, origin=https_origin(base), allowed_urls=(base,)
+        )
         if response.status_code != 200:
             close_response(response)
             raise GradescopeError("Gradescope course unavailable")

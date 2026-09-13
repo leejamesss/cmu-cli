@@ -12,7 +12,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote, urljoin, urlsplit, urlunsplit
 
-from .ed_client import EdError, _identifier
+from .ed_client import EdAuthError, EdError, _identifier
 from .storage import checked_destination, download_file, safe_filename
 from .web_session import (
     MAX_DOWNLOAD_BYTES,
@@ -177,7 +177,16 @@ def ed_materials(client, course_id, *, page_size=100, max_pages=100):
         listing = client.threads(cid, page_size=page_size, max_pages=max_pages)
     except EdError as exc:
         listing = exc.partial or {"items": [], "complete": False}
-        issues.append({"reason": "thread_listing_failed"})
+        if isinstance(exc, EdAuthError) and not listing["items"]:
+            exc.partial = None
+            raise
+        issues.append(
+            {
+                "reason": "authentication_required"
+                if isinstance(exc, EdAuthError)
+                else "thread_listing_failed"
+            }
+        )
     if not listing["complete"]:
         issues.append({"reason": "thread_listing_incomplete"})
     seen = set()
@@ -202,6 +211,11 @@ def ed_materials(client, course_id, *, page_size=100, max_pages=100):
                 visited.add(marker)
                 if node is not thread:
                     count += 1
+                if not any(
+                    isinstance(node.get(field), str)
+                    for field in ("content", "document")
+                ):
+                    issues.append({"post_id": tid, "reason": "body_not_returned"})
                 for field in ("content", "document"):
                     if node.get(field) is not None:
                         _combine(

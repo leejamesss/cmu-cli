@@ -1,9 +1,25 @@
-# Discussion material Python APIs
+# Ed discussion materials
 
-This module adds **Ed thread attachment discovery** and **Piazza supplied-post
-attachment parsing**, not a universal Resources downloader. No CLI commands are
-added here. All development checks use synthetic payloads and temporary storage;
-no browser, credentials, enrolled course, or live provider API was accessed.
+List recognized thread/reply references and download a selected attachment:
+
+```sh
+cmu-cli ed materials --course-id 12 --json
+cmu-cli ed download --course-id 12 --id ATTACHMENT_ID --output ./private-ed-files --json
+```
+
+Supply `CMU_CLI_ED_TOKEN` through your secret-management workflow; no Canvas login
+or config is required. Copy `ATTACHMENT_ID` verbatim from the listing. Downloads
+reread the authorized inventory; arbitrary URLs or caller-authored manifests are
+not accepted. Both commands accept `--page-size` (1–100) and `--max-pages`
+(1–1000), default 100. Use `--config PATH` before `ed` for an optional API base.
+Plain output shows IDs, filenames and availability; JSON includes source status,
+issues and provenance. Missing/rejected token exits 2; partial inventory, missing
+selected ID or refused download exits 3. Different destination bytes exit 2 and
+are preserved; choose a new output root.
+
+This is not a universal Resources downloader. **Piazza supplied-post parsing**
+remains a Python-only pure parser, not network attachment acquisition. Development
+checks use synthetic payloads and temporary storage, with no live account access.
 
 ## APIs
 
@@ -95,8 +111,9 @@ private targets and off-origin redirects are not fetched. Every redirect remains
 pinned to its initial exact origin, so another CDN or signed cross-origin handoff
 fails closed before transmission. This conservative policy intentionally does
 not promise support for every returned Piazza/Ed storage host or authenticated
-asset. Trusted provider DNS remains part of the transport trust model; this is
-not a general-purpose arbitrary-host SSRF-hardened downloader.
+asset. Shared `public_transport.PublicHTTPSAdapter` rejects non-public DNS
+answers and pins the socket to a vetted numeric address while preserving TLS
+hostname verification. No duplicate transport is introduced.
 
 Both advertised and streamed decompressed sizes are bounded (default hard cap
 100 MiB, callers may lower it). HTTP failures, HTML/login responses and invalid

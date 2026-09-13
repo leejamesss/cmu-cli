@@ -161,10 +161,12 @@ def safe_request(
     method: str = "GET",
     params=None,
     anonymous: bool = False,
+    allowed_urls=None,
     json=None,
 ):
     """Follow only validated redirects; authenticated traffic never changes origin.
 
+    allowed_urls optionally pins every hop to an observed URL set (not just origin).
     Anonymous callers must supply a fresh configured_session. Clear any cookies
     set by earlier responses so redirects cannot turn public downloads into auth.
     """
@@ -181,6 +183,8 @@ def safe_request(
     session.resolve_redirects = lambda *args, **kwargs: iter(())
     for hop in range(MAX_REDIRECTS + 1):
         target_origin = https_origin(url)
+        if allowed_urls is not None and url not in allowed_urls:
+            raise SessionError("Request left its authorized observed URLs")
         if origin is not None and target_origin != origin:
             raise CrossOriginRedirect(url)
         if url in seen:

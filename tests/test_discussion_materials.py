@@ -22,8 +22,9 @@ class Response:
         self.closed = True
 
 
-class Session:
+class Session(requests.Session):
     def __init__(self, responses):
+        super().__init__()
         self.responses, self.calls = list(responses), []
         self.cookies = requests.cookies.RequestsCookieJar()
         self.headers = {}
@@ -237,7 +238,10 @@ def test_storage_collision_traversal_idempotence_and_edits(tmp_path, monkeypatch
     with pytest.raises(FileExistsError):
         dm.download_attachment(item, tmp_path)
     assert destination.read_bytes() == b"local edit"
-    assert all(not s.calls[0][2] and not s.calls[0][3] for s in sessions)
+    assert all(
+        s.calls[0][2] == {"User-Agent": "cmu_cli/0.1"} and not s.calls[0][3]
+        for s in sessions
+    )
 
 
 @pytest.mark.parametrize(
