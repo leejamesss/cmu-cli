@@ -29,8 +29,9 @@ jobs:
       - name: Fresh wheel smoke outside checkout
         shell: python
         run: |
-          import os, pathlib, shutil, subprocess, tempfile, venv
+          import os, pathlib, shutil, subprocess, sys, tempfile, venv
           checkout = pathlib.Path.cwd()
+          sys.path.insert(0, str(checkout))
           wheel = next(pathlib.Path('dist').glob('*.whl')).resolve()
           with tempfile.TemporaryDirectory() as tmp:
               root = pathlib.Path(tmp)
