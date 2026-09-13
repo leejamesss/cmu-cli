@@ -127,6 +127,28 @@ DOWNLOADABLE_EXTENSIONS = {
 }
 
 
+def local_material_paths(root: Path) -> list[Path]:
+    """Every downloaded material under a course root, wherever sync filed it.
+
+    ``canvas_material_folder`` routes a download into one of six categories. Listing a
+    fixed subset of them hides whatever landed in the others -- a syllabus, a course
+    calendar or any homework attachment. Walking the course root instead keeps this
+    listing in step with the routing rules by construction. The metadata cache holds
+    retained earlier revisions under downloadable names, so it is excluded explicitly
+    rather than by extension.
+    """
+    if not root.is_dir():
+        return []
+    return [
+        path
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+        and not path.name.startswith(".")
+        and path.suffix.lower() in DOWNLOADABLE_EXTENSIONS
+        and ".cmucw" not in path.relative_to(root).parts
+    ]
+
+
 def clean_html(value: str | None) -> str:
     text = re.sub(r"<[^>]+>", " ", value or "")
     return re.sub(r"\s+", " ", unescape(text)).strip()
@@ -153,6 +175,38 @@ def format_time(value: str | None) -> str:
     if parsed.tzinfo is None:
         return "Unknown"
     return parsed.astimezone(LOCAL_TZ).strftime("%Y-%m-%d %a %H:%M %Z")
+
+
+def deadline_order(value: str | None) -> tuple[int, datetime | str]:
+    """Sort key placing the soonest deadline first and undated entries last.
+
+    Canvas returns assignments in assignment-group order, which interleaves two
+    ascending runs; an index written in that order cannot be read by date. Offsets
+    differ between entries, so compare parsed instants rather than raw strings, and
+    keep unparseable values in a band of their own instead of failing the whole sort.
+    """
+    if not value:
+        return (2, "")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (ValueError, TypeError, AttributeError):
+        return (1, str(value))
+    if parsed.tzinfo is None:
+        return (1, str(value))
+    return (0, parsed)
+
+
+def newest_first(items: list[dict[str, Any]], field: str) -> list[dict[str, Any]]:
+    """Most recent first, with undated entries kept at the end.
+
+    Reversing ``deadline_order`` directly would lift the undated band to the top,
+    which is the opposite of what it means, so order the dated entries and append the
+    rest in their original order.
+    """
+    dated = [item for item in items if deadline_order(item.get(field))[0] == 0]
+    undated = [item for item in items if deadline_order(item.get(field))[0] != 0]
+    dated.sort(key=lambda item: deadline_order(item.get(field)), reverse=True)
+    return dated + undated
 
 
 def course_root(config: Config, course: Course) -> Path:
@@ -282,7 +336,9 @@ def assignments_markdown(course: Course, assignments: list[dict[str, Any]]) -> s
     ]
     if not assignments:
         lines.append("当前 Canvas 没有发布作业。")
-    for item in assignments:
+    for item in sorted(
+        assignments, key=lambda item: deadline_order(item.get("due_at"))
+    ):
         submission = item.get("submission") or {}
         state = submission_state(
             submission.get("workflow_state"), submission.get("submitted_at")
@@ -306,7 +362,7 @@ def announcements_markdown(course: Course, announcements: list[dict[str, Any]]) 
     lines = [f"# {course.code} Canvas 通知索引", "", "由 `cmu-cli sync` 生成。", ""]
     if not announcements:
         lines.append("当前 Canvas 没有课程通知。")
-    for item in announcements:
+    for item in newest_first(announcements, "posted_at"):
         lines.extend(
             [
                 f"## {item.get('title', '未命名通知')}",

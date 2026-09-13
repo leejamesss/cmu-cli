@@ -31,7 +31,16 @@ class EdError(RuntimeError):
 
 
 class EdAuthError(EdError):
-    pass
+    """Authorization failure whose message is authored here, not quoted from Ed.
+
+    Every EdAuthError is raised with one of the literals below, so the text carries
+    no URL, response body or token and is safe to show. It is also the only place
+    that says what to do about it.
+    """
+
+    NO_TOKEN = "Set CMU_CLI_ED_TOKEN to an Ed API token"
+    DENIED = "Ed authentication or course access denied"
+    REJECTED = "Ed API token rejected"
 
 
 def _identifier(value: Any) -> str:
@@ -101,7 +110,7 @@ class EdClient:
             if self.session is None:
                 token = os.environ.get("CMU_CLI_ED_TOKEN")
                 if not token or any(ord(c) <= 32 or ord(c) >= 127 for c in token):
-                    raise EdAuthError("Set CMU_CLI_ED_TOKEN to an Ed API token")
+                    raise EdAuthError(EdAuthError.NO_TOKEN)
                 self.session = configured_session()
                 self.session.headers["Authorization"] = f"Bearer {token}"
             response = safe_request(
@@ -112,7 +121,7 @@ class EdClient:
             )
             if response.status_code in (401, 403):
                 close_response(response)
-                raise EdAuthError("Ed authentication or course access denied")
+                raise EdAuthError(EdAuthError.DENIED)
             if response.status_code != 200:
                 status = response.status_code
                 close_response(response)
@@ -124,7 +133,7 @@ class EdClient:
             if not isinstance(data, dict):
                 raise EdError("Invalid Ed response object")
             if data.get("code") == "bad_token":
-                raise EdAuthError("Ed API token rejected")
+                raise EdAuthError(EdAuthError.REJECTED)
             if data.get("error") or data.get("code"):
                 raise EdError("Ed API rejected the read request")
             return data

@@ -18,11 +18,15 @@ from functools import lru_cache
 from typing import Any
 
 
+def colour_forced() -> bool:
+    return os.environ.get("CLICOLOR_FORCE", "0") not in ("", "0")
+
+
 def interactive(stream=None) -> bool:
     stream = stream or sys.stdout
     if os.environ.get("NO_COLOR") or os.environ.get("TERM") == "dumb":
         return False
-    if os.environ.get("CLICOLOR_FORCE", "0") not in ("", "0"):
+    if colour_forced():
         return True
     try:
         return bool(stream.isatty())
@@ -32,10 +36,22 @@ def interactive(stream=None) -> bool:
 
 @lru_cache(maxsize=1)
 def console():
-    """Built once, and only if something actually renders through it."""
+    """Built once, and only if something actually renders through it.
+
+    `interactive` honours CLICOLOR_FORCE, but Rich decides colour a second time from
+    the stream it is handed. Without `force_terminal` a forced run therefore emitted
+    the table's box drawing into the pipe and dropped every colour inside it -- the
+    worst of both, since CLICOLOR_FORCE exists to ask for exactly that colour.
+    Anything else keeps Rich's own detection, so the NO_COLOR and piped paths, which
+    return before reaching here, are untouched.
+    """
     from rich.console import Console
 
-    return Console(highlight=False, soft_wrap=False)
+    return Console(
+        highlight=False,
+        soft_wrap=False,
+        force_terminal=True if colour_forced() else None,
+    )
 
 
 STATUS_STYLE = {

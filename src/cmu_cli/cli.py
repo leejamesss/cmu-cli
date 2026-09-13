@@ -20,11 +20,17 @@ from . import style
 from .canvas_client import CanvasClient, CanvasError
 from .edge_browser import BrowserError, EdgeBrowser
 from .gradescope_client import GradescopeClient
-from .models import Config, Course, load_config
+from .models import Config, Course, UsageError, load_config
 from .official_materials import public_materials
 from .official_quizzes import public_quizzes
 from .piazza_client import PiazzaClient
-from .storage import DOWNLOADABLE_EXTENSIONS, clean_html, format_time, sync_course
+from .storage import (
+    clean_html,
+    course_root,
+    format_time,
+    local_material_paths,
+    sync_course,
+)
 from .submissions import submission_state
 
 SCHEMA_VERSION = "1.0"
@@ -35,10 +41,25 @@ class OperationError(RuntimeError):
     """Sanitized failure without provider exception details in its message."""
 
 
+ERROR_HINTS = {
+    "CONFIG_NOT_FOUND": "Create one with: cmu-cli config init --output cmu-cli.json",
+    "CONFIG_ALREADY_EXISTS": "Choose another path with --output, or edit the existing file.",
+    "CONFIG_INVALID_JSON": "The configuration file is not valid JSON.",
+    "CONFIG_OR_OPERATION_FAILED": (
+        "Check configuration, authorization and service availability; "
+        "no credentials are included in diagnostics."
+    ),
+}
+
+
 @contextmanager
 def sanitized_errors():
     try:
         yield
+    except UsageError:
+        # Authored here from the caller's own input and configuration, so there is
+        # no provider detail to strip and nothing is gained by hiding the reason.
+        raise
     except Exception as exc:  # noqa: BLE001 - sanitize provider failures
         code = (
             "CONFIG_NOT_FOUND"
@@ -97,6 +118,39 @@ def limited(rows, limit):
     return rows
 
 
+def incomplete_report(warnings: list[dict[str, Any]]) -> list[str]:
+    """Name what was missing, rather than only that something was.
+
+    A per-course source failure is invisible in the plain output: the rows that did
+    arrive print normally and a single trailing line says results are incomplete. On
+    an eight-course account five courses can fail a quizzes fetch and the reader has
+    no way to tell which, so an empty result reads as "no quizzes" instead of "not
+    read". Group the failures by source so the line stays short when many courses
+    fail the same way.
+    """
+    unavailable: dict[str, list[str]] = {}
+    truncated = []
+    for warning in warnings:
+        if warning.get("code") == "SOURCE_UNAVAILABLE":
+            courses = unavailable.setdefault(warning.get("source") or "unknown", [])
+            course = warning.get("course")
+            if course and course not in courses:
+                courses.append(course)
+        elif warning.get("code") == "TRUNCATED":
+            truncated.append(warning)
+    lines = ["cmu-cli: incomplete results"]
+    for source, courses in unavailable.items():
+        scope = f" for {', '.join(courses)}" if courses else ""
+        lines.append(f"  {source} unavailable{scope}")
+    for warning in truncated:
+        lines.append(
+            f"  showing {warning.get('limit')} of "
+            f"{warning.get('total_before_limit')} rows (--limit)"
+        )
+    lines.append("  use --json for full source status")
+    return lines
+
+
 def print_json(data: Any, error=None) -> None:
     warnings = _CONTEXT["warnings"]
     status = "error" if error else ("partial" if warnings else "ok")
@@ -144,6 +198,16 @@ def course_files(client: CanvasClient, course: Course) -> list[dict[str, Any]]:
     )
 
 
+def platform_state(course: dict[str, Any], platform: str) -> str:
+    """A Canvas launch tab is not a configured provider URL; say so rather than
+    reporting a course as configured when the reader has nothing to read."""
+    if course[f"{platform}_configured"]:
+        return "configured"
+    if course.get(f"{platform}_in_canvas"):
+        return "in Canvas, URL not configured"
+    return "not configured"
+
+
 def command_status(
     args: argparse.Namespace, config: Config, client: CanvasClient
 ) -> int:
@@ -166,6 +230,8 @@ def command_status(
                     "canvas": "ok" if live else "missing",
                     "piazza_configured": bool(platforms["piazza"]),
                     "gradescope_configured": bool(platforms["gradescope"]),
+                    "piazza_in_canvas": bool(platforms["piazza_canvas_tab"]),
+                    "gradescope_in_canvas": bool(platforms["gradescope_canvas_tab"]),
                 }
             )
     except (CanvasError, BrowserError):
@@ -181,9 +247,11 @@ def command_status(
         if result.get("error"):
             print(f"Reason: {result['error']}")
         for course in result["courses"]:
-            print(
-                f"◆ {course['code']} Canvas={course['canvas']} Piazza={'configured' if course['piazza_configured'] else 'not configured'} Gradescope={'configured' if course['gradescope_configured'] else 'not configured'}"
+            states = " ".join(
+                f"{name.title()}={platform_state(course, name)}"
+                for name in ("piazza", "gradescope")
             )
+            print(f"◆ {course['code']} Canvas={course['canvas']} {states}")
     return 3 if result.get("error") else 0
 
 
@@ -356,6 +424,7 @@ def quiz_rows(client: CanvasClient, courses: list[Course]) -> list[dict[str, Any
                 "name": quiz.get("title"),
                 "kind": "quiz",
                 "due_at": timestamp(quiz.get("due_at")),
+                "due_local": format_time(quiz.get("due_at")),
                 "unlock_at": timestamp(quiz.get("unlock_at")),
                 "lock_at": timestamp(quiz.get("lock_at")),
                 "dates_raw": {
@@ -388,6 +457,7 @@ def quiz_rows(client: CanvasClient, courses: list[Course]) -> list[dict[str, Any
                 "starts_at": timestamp(row.get("starts_at")),
                 "time_inferred": True,
                 "due_at": None,
+                "due_local": format_time(None),
                 "unlock_at": None,
                 "lock_at": None,
             }
@@ -405,6 +475,22 @@ def quiz_rows(client: CanvasClient, courses: list[Course]) -> list[dict[str, Any
     )
 
 
+def quiz_time(item: dict[str, Any]) -> str:
+    """Name the time being shown; a quiz's open time is not its deadline.
+
+    The plain line used to print the unlock time in the position a reader scans for a
+    deadline, unlabelled, so a quiz that opened in July read as though it were due
+    then -- and a quiz with a real due date and no unlock time read as having none.
+    """
+    if item.get("due_at"):
+        return f"due {item['due_local']}"
+    if item.get("starts_at"):
+        if item.get("source") == "course_site" and item.get("time_inferred"):
+            return f"starts (inferred) {item['starts_local']}"
+        return f"opens {item['starts_local']}"
+    return f"due {item['due_local']}"
+
+
 def command_quizzes(
     args: argparse.Namespace, config: Config, client: CanvasClient
 ) -> int:
@@ -416,7 +502,7 @@ def command_quizzes(
     else:
         for item in rows:
             print(
-                f"◆ {item['course']} | {item['name']} | {item.get('kind', 'quiz')} | {item['starts_local']} | {item['source']}"
+                f"◆ {item['course']} | {item['name']} | {item.get('kind', 'quiz')} | {quiz_time(item)} | {item['source']}"
             )
             if item.get("url"):
                 print(f"  {item['url']}")
@@ -442,28 +528,18 @@ def command_materials(
                     "path": None,
                 }
             )
-        current_root = config.storage_root / course.directory / config.term
-        for folder_name in ["01_讲义", "03_Recitations"]:
-            folder = current_root / folder_name
-            if not folder.exists():
-                continue
-            for path in folder.rglob("*"):
-                if (
-                    path.is_file()
-                    and not path.name.startswith(".")
-                    and path.suffix.lower() in DOWNLOADABLE_EXTENSIONS
-                ):
-                    rows.append(
-                        {
-                            "source": "local",
-                            "course": course.code,
-                            "name": path.name,
-                            "size": path.stat().st_size,
-                            "updated_at": None,
-                            "url": None,
-                            "path": str(path),
-                        }
-                    )
+        for path in local_material_paths(course_root(config, course)):
+            rows.append(
+                {
+                    "source": "local",
+                    "course": course.code,
+                    "name": path.name,
+                    "size": path.stat().st_size,
+                    "updated_at": None,
+                    "url": None,
+                    "path": str(path),
+                }
+            )
     rows.sort(key=lambda item: (item["course"], item["source"], item["name"] or ""))
     rows = limited(rows, args.limit)
     if args.json:
@@ -522,18 +598,31 @@ def command_announcements(
 def discovered_platform_urls(
     client: CanvasClient, course: Course
 ) -> dict[str, str | None]:
-    result = {
+    """Configured provider URLs, plus any Canvas launch tab for the same provider.
+
+    A Canvas tab labelled "Piazza" is an LTI launch point on the Canvas origin, not a
+    Piazza URL: it carries no class network ID, and ``posts`` cannot read a feed from
+    it. Reporting it as the provider URL made ``status`` claim Piazza was configured
+    for a course where ``posts`` then returned nothing. Keep the launch tab as its own
+    signal -- it is worth telling someone the course uses Piazza -- and leave the
+    provider URLs to the configuration that the readers actually use.
+    """
+    result: dict[str, str | None] = {
         "canvas": f"{client.base_url}/courses/{course.canvas_id}",
         "piazza": course.piazza_url,
         "gradescope": course.gradescope_url,
+        "piazza_canvas_tab": None,
+        "gradescope_canvas_tab": None,
     }
     for tab in client.tabs(course.canvas_id):
         label = (tab.get("label") or "").lower()
         url = tab.get("html_url")
-        if "piazza" in label and url and not result["piazza"]:
-            result["piazza"] = urljoin(client.base_url, url)
-        if "gradescope" in label and url and not result["gradescope"]:
-            result["gradescope"] = urljoin(client.base_url, url)
+        if not url:
+            continue
+        for platform in ("piazza", "gradescope"):
+            key = f"{platform}_canvas_tab"
+            if platform in label and not result[key]:
+                result[key] = urljoin(client.base_url, url)
     return result
 
 
@@ -573,6 +662,9 @@ def command_platforms(
             print(f"◆ {row['course']}")
             for platform in ["canvas", "piazza", "gradescope"]:
                 print(f"  {platform}: {row.get(platform) or 'not configured'}")
+                tab = row.get(f"{platform}_canvas_tab")
+                if tab and not row.get(platform):
+                    print(f"    (opens from Canvas: {tab})")
     return 0
 
 
@@ -581,7 +673,7 @@ def command_open(args: argparse.Namespace, config: Config, client: CanvasClient)
     if args.platform == "canvas" and not course:
         url = config.canvas_base_url
     elif not course:
-        raise ValueError("Piazza and Gradescope require --course.")
+        raise UsageError("Piazza and Gradescope require --course.")
     else:
         url = {
             "canvas": f"{config.canvas_base_url}/courses/{course.canvas_id}",
@@ -589,7 +681,10 @@ def command_open(args: argparse.Namespace, config: Config, client: CanvasClient)
             "gradescope": course.gradescope_url,
         }.get(args.platform)
         if not url:
-            raise ValueError(f"{course.code} has no configured {args.platform} 入口。")
+            raise UsageError(
+                f"{course.code} has no configured {args.platform} URL; "
+                f"add one to the course entry in your configuration."
+            )
     EdgeBrowser().open(url)
     print("Opened configured URL in your default browser.")
     return 0
@@ -692,20 +787,141 @@ def command_provider(args):
             result = None
             error = {
                 "code": code,
-                "message": "Check provider authorization and availability.",
+                # An Ed authorization message is one of a few literals authored in
+                # ed_client, so it carries no provider detail -- and it is the only
+                # text that says what to do. Reporting it here keeps `ed courses`
+                # consistent with `ed threads`, which already surfaced the same
+                # sentence through its partial listing.
+                "message": str(exc)
+                if isinstance(exc, EdAuthError)
+                else "Check provider authorization and availability.",
             }
     if args.json:
         print_json(result, error=error)
+    elif error is not None:
+        print(f"cmu-cli: {error['code']}\n  {error['message']}", file=sys.stderr)
     else:
-        print(
-            json.dumps(result if error is None else error, ensure_ascii=False, indent=2)
+        lines = (
+            sio_lines(result)
+            if args.command == "sio"
+            else ed_lines(args.action, result)
         )
+        print("\n".join(lines))
+        if (
+            args.command == "ed"
+            and isinstance(result, dict)
+            and result.get("complete") is False
+        ):
+            print(f"  incomplete: {_text(result.get('reason'), 'unknown')}")
         if _CONTEXT["warnings"]:
             print(
                 "cmu-cli: incomplete results; use --json for source status",
                 file=sys.stderr,
             )
     return 2 if error else (3 if _CONTEXT["warnings"] else 0)
+
+
+def _text(value: Any, fallback: str = "?") -> str:
+    text = str(value).strip() if value not in (None, "") else ""
+    return text or fallback
+
+
+def ed_lines(action: str, result: Any) -> list[str]:
+    """Readable Ed output. --json still returns the provider shape untouched."""
+    if action == "courses":
+        rows = result if isinstance(result, list) else []
+        if not rows:
+            return ["No Ed courses returned."]
+        lines = []
+        for row in rows:
+            course = row.get("course") or {}
+            role = (row.get("role") or {}).get("role")
+            suffix = f" ({role})" if role else ""
+            lines.append(
+                f"◆ {_text(course.get('code'))} — {_text(course.get('name'), '')}"
+                f" [Ed {_text(course.get('id'))}]{suffix}".replace(" — ", " — ", 1)
+            )
+        return lines
+    if action == "thread":
+        row = result if isinstance(result, dict) else {}
+        return [
+            f"◆ #{_text(row.get('number'))} {_text(row.get('title'), 'untitled')}",
+            f"  category: {_text(row.get('category'), 'none')}"
+            f" | created: {format_time(row.get('created_at'))}"
+            f" | replies: {_text(row.get('reply_count'), '0')}",
+            f"  {clean_html(row.get('document') or row.get('content')) or 'No body.'}",
+        ]
+    result = result if isinstance(result, dict) else {}
+    prefix = []
+    if "partial_listing" in result:
+        # A failed read carries the records it did collect, not matches.
+        result = result.get("partial_listing") or {}
+        prefix = [f"Partial read: {_text(result.get('reason'), 'unknown reason')}"]
+    items = result.get("items")
+    if items is None:
+        return prefix + [json.dumps(result, ensure_ascii=False, indent=2)]
+    if not items:
+        return prefix + ["Nothing returned."]
+    lines = list(prefix)
+    for row in items:
+        if action == "replies":
+            user = (row.get("user") or {}).get("name")
+            lines.append(
+                f"◆ reply {_text(row.get('id'))} by {_text(user, 'unknown')}"
+                f" | {format_time(row.get('created_at'))}"
+            )
+            body = clean_html(row.get("document") or row.get("content"))
+            if body:
+                lines.append(f"  {body}")
+        else:
+            lines.append(
+                f"◆ #{_text(row.get('number'))} {_text(row.get('title'), 'untitled')}"
+                f" | {_text(row.get('category'), 'no category')}"
+                f" | {format_time(row.get('created_at'))}"
+            )
+    return lines
+
+
+def sio_lines(result: dict[str, Any]) -> list[str]:
+    """Readable SIO output for the two parsed views and the readiness probe."""
+    view = result.get("view")
+    rows = result.get("schedule") or result.get("waitlist_history") or []
+    header = (
+        f"◆ SIO {_text(view, 'probe')} | status: {_text(result.get('status'))}"
+        f" | term: {_text(result.get('term'), 'unknown')}"
+    )
+    lines = [header]
+    if view == "semester_schedule":
+        for row in rows:
+            lines.append(
+                f"  {_text(row.get('course_code'))} {_text(row.get('section'), '')}"
+                f" — {_text(row.get('title'), 'untitled')}"
+            )
+            lines.append(
+                f"    {_text(row.get('dates'), 'dates unknown')}"
+                f" | {_text(row.get('times'), 'times unknown')}"
+                f" | {_text(row.get('building_room'), 'room unknown')}"
+                f" | {', '.join(row.get('instructors') or ['instructor unknown'])}"
+            )
+    elif view == "waitlist_history":
+        for row in rows:
+            lines.append(
+                f"  {_text(row.get('course_code'))} {_text(row.get('section'), '')}"
+                f" | on: {_text(row.get('on_date'), 'none')}"
+                f" | off: {_text(row.get('off_date'), 'none')}"
+                f" | confirmed: {_text(row.get('confirm_date'), 'none')}"
+            )
+    if view and not rows:
+        # An empty template is unknown, not a verified empty schedule.
+        lines.append("  No rows parsed. This is not a verified empty result.")
+    seen, parsed = result.get("rows_seen"), result.get("rows_parsed")
+    if seen is not None:
+        lines.append(f"  rows parsed: {parsed} of {seen} seen")
+    for warning in result.get("warnings") or []:
+        lines.append(f"  warning: {_text(warning)}")
+    if (result.get("provenance") or {}).get("url"):
+        lines.append(f"  source: {result['provenance']['url']}")
+    return lines
 
 
 def ed_identifier(value):
@@ -715,6 +931,23 @@ def ed_identifier(value):
         return validate_ed_id(value)
     except ValueError as exc:
         raise argparse.ArgumentTypeError(str(exc)) from None
+
+
+# argparse lists a subcommand in the help body only when add_parser was given a help
+# string. These were built in loops without one, so the commands this tool exists for
+# -- assignments, courses, sync -- appeared in the usage line and nowhere else.
+COMMAND_HELP = {
+    "status": "Report Canvas authentication and per-course platform configuration",
+    "courses": "List configured courses and their Canvas availability",
+    "assignments": "Read Canvas and Gradescope assignments with submission state",
+    "quizzes": "Read Canvas quizzes and their deadlines",
+    "platforms": "Show the configured Canvas, Piazza and Gradescope links",
+    "materials": "List Canvas files and already-synced local materials",
+    "announcements": "Read Canvas course announcements",
+    "posts": "Read configured Piazza class feeds",
+    "sync": "Download Canvas materials and write local Markdown indexes",
+    "open": "Open a configured course link in your default browser",
+}
 
 
 def parser() -> argparse.ArgumentParser:
@@ -772,7 +1005,7 @@ def parser() -> argparse.ArgumentParser:
     )
     history.add_argument("--json", action="store_true")
     configuration = commands.add_parser("config", help="Offline configuration tools")
-    configuration.add_argument("action", choices=["init", "validate"])
+    configuration.add_argument("action", choices=["init", "validate", "browsers"])
     configuration.add_argument("--output", type=Path, default=Path("cmu-cli.json"))
     configuration.add_argument("--json", action="store_true")
     auth = commands.add_parser("auth", help="Offline OAuth registration preflight only")
@@ -788,25 +1021,22 @@ def parser() -> argparse.ArgumentParser:
     )
     demo.add_argument("--json", action="store_true")
     for name in ["status", "courses"]:
-        command = commands.add_parser(name)
+        command = commands.add_parser(name, help=COMMAND_HELP[name])
         command.add_argument("--json", action="store_true")
     for name in ["assignments", "quizzes", "platforms"]:
-        command = commands.add_parser(name)
+        command = commands.add_parser(name, help=COMMAND_HELP[name])
         command.add_argument("--course")
         command.add_argument("--json", action="store_true")
     for name in ["materials", "announcements", "posts"]:
-        command = commands.add_parser(
-            name,
-            help="Read configured Piazza class feeds" if name == "posts" else None,
-        )
+        command = commands.add_parser(name, help=COMMAND_HELP[name])
         command.add_argument("--course")
         command.add_argument("--limit", type=positive_limit, default=None)
         command.add_argument("--json", action="store_true")
-    sync = commands.add_parser("sync")
+    sync = commands.add_parser("sync", help=COMMAND_HELP["sync"])
     sync.add_argument("--course")
     sync.add_argument("--metadata-only", action="store_true")
     sync.add_argument("--json", action="store_true")
-    open_command = commands.add_parser("open")
+    open_command = commands.add_parser("open", help=COMMAND_HELP["open"])
     open_command.add_argument("platform", choices=["canvas", "piazza", "gradescope"])
     open_command.add_argument("--course")
     return root
@@ -861,6 +1091,40 @@ def main() -> None:
                     print(result["assignment_index"])
                     print("Generated exports (temporary; removed after demo):")
                     print("\n".join(result["exports"]))
+                return
+            if args.command == "config" and args.action == "browsers":
+                from .browser_profiles import candidate_databases
+
+                rows = candidate_databases()
+                if args.json:
+                    print_json(rows)
+                elif not rows:
+                    print(
+                        "No Edge or Chrome cookie database found in the standard "
+                        "locations.\nSafari and Firefox are not supported; see "
+                        "docs/browser-auth.md to name a database explicitly."
+                    )
+                else:
+                    print(
+                        "Cookie databases found. Nothing was opened or decrypted; "
+                        "choose one yourself:\n"
+                    )
+                    for index, row in enumerate(rows, 1):
+                        print(
+                            f"  [{index}] {row['browser']} / {row['profile']}\n"
+                            f"      {row['cookie_file']}"
+                        )
+                    chosen = rows[0]
+                    print(
+                        "\nAdd the one you are signed in with to your configuration, "
+                        "listing only the hosts you want read:\n\n"
+                        '  "browser_auth": {\n'
+                        '    "enabled": true,\n'
+                        f'    "browser": "{chosen["browser"]}",\n'
+                        f'    "cookie_file": "{chosen["cookie_file"]}",\n'
+                        '    "hosts": ["piazza.com", "www.gradescope.com"]\n'
+                        "  }"
+                    )
                 return
             if args.command == "config" and args.action == "init":
                 template = (
@@ -926,20 +1190,22 @@ def main() -> None:
             if _CONTEXT["warnings"]:
                 if not getattr(args, "json", False):
                     print(
-                        "cmu-cli: incomplete results; use --json for source status",
+                        "\n".join(incomplete_report(_CONTEXT["warnings"])),
                         file=sys.stderr,
                     )
                 code = 3
             raise SystemExit(code)
+    except UsageError as exc:
+        if getattr(args, "json", False):
+            print_json(None, error={"code": "USAGE", "message": str(exc)})
+        print(f"cmu-cli: {exc}", file=sys.stderr)
+        raise SystemExit(2) from None
     except OperationError as exc:
         code = str(exc)
-        error = {
-            "code": code,
-            "message": "Check configuration, authorization and service availability; no credentials are included in diagnostics.",
-        }
+        error = {"code": code, "message": ERROR_HINTS[code]}
         if getattr(args, "json", False):
             print_json(None, error=error)
-        print("cmu-cli: " + code, file=sys.stderr)
+        print(f"cmu-cli: {code}\n  {ERROR_HINTS[code]}", file=sys.stderr)
         raise SystemExit(2) from None
 
 
