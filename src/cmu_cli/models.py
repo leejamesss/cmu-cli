@@ -22,6 +22,18 @@ class InvalidTypeError(TypeError, ValueError):
     """Invalid input type, compatible with existing ValueError callers."""
 
 
+class UsageError(ValueError):
+    """A request this tool can describe back without quoting a provider.
+
+    Sanitizing provider failures is deliberate: a raw exception can carry a URL, a
+    response body or a path. That is not true of the CLI's own validation, whose
+    messages are authored here and contain only what the caller typed and what their
+    own configuration holds. Collapsing those into CONFIG_OR_OPERATION_FAILED told a
+    reader who mistyped a course code exactly as much as a network outage did.
+    Compatible with existing ValueError callers.
+    """
+
+
 @dataclass(frozen=True)
 class Course:
     code: str
@@ -91,10 +103,13 @@ class Config:
             or normalized in re.sub(r"[^a-z0-9]", "", course.name.lower())
         ]
         if not matches:
-            raise ValueError(f"No matching course: {query}")
+            configured = ", ".join(course.code for course in self.courses) or "none"
+            raise UsageError(
+                f"No matching course: {query}. Configured courses: {configured}"
+            )
         if len(matches) > 1:
             choices = ", ".join(course.code for course in matches)
-            raise ValueError(f"Ambiguous course: {choices}")
+            raise UsageError(f"Ambiguous course: {query} matches {choices}")
         return matches[0]
 
 
