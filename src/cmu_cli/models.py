@@ -62,6 +62,7 @@ def validate_ed_id(value):
 class ProviderConfig:
     ed_api_base_url: str = "https://us.edstem.org/api"
     browser_auth: dict | None = None
+    sso: dict | None = None
 
 
 def load_provider_config(path: Path | None = None) -> ProviderConfig:
@@ -80,7 +81,9 @@ def provider_config(raw) -> ProviderConfig:
     base = raw.get("ed_api_base_url", "https://us.edstem.org/api")
     if not isinstance(base, str) or base not in ED_API_BASES:
         raise ValueError("Unsupported exact Ed API base")
-    return ProviderConfig(base, raw.get("browser_auth"))
+    return ProviderConfig(
+        ed_api_base_url=base, browser_auth=raw.get("browser_auth"), sso=raw.get("sso")
+    )
 
 
 @dataclass(frozen=True)
@@ -93,6 +96,7 @@ class Config:
     timezone: str = "America/New_York"
     browser_auth: dict | None = None
     ed_api_base_url: str = "https://us.edstem.org/api"
+    sso: dict | None = None
 
     def find_course(self, query: str) -> Course:
         normalized = re.sub(r"[^a-z0-9]", "", query.lower())
@@ -188,11 +192,12 @@ def load_config(path: Path | None = None) -> Config:
     if not storage.is_absolute():
         storage = path.resolve().parent / storage
     return Config(
-        base,
-        storage,
-        courses,
-        term,
-        raw.get("timezone", "America/New_York"),
-        raw.get("browser_auth"),
-        provider_config(raw).ed_api_base_url,
+        canvas_base_url=base,
+        storage_root=storage,
+        courses=courses,
+        term=term,
+        timezone=raw.get("timezone", "America/New_York"),
+        browser_auth=raw.get("browser_auth"),
+        sso=raw.get("sso"),
+        ed_api_base_url=provider_config(raw).ed_api_base_url,
     )

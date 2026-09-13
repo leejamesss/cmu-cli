@@ -34,7 +34,64 @@ history = parse_waitlist_history(html)
 Neither accepts guessed term parameters or changes the selected semester.
 Constants are `SEMESTER_SCHEDULE_URL` and `WAITLIST_HISTORY_URL`.
 
-Both require explicitly passed `browser_auth` for online reads. Without it they
+## Reaching SIO: two transports
+
+**Draft integration — not ready to merge or use for live login.** The current
+closed request policy covers only publicly observed pre-login CMU endpoints and
+the SIO SAML2 POST metadata endpoint. A complete institution-specific Duo/MFA
+policy and real-engine adversarial validation are still missing. Unknown requests
+fail closed, so legitimate MFA/static resources can currently be blocked. See
+[SSO policy review](sso-policy-review.md) for the precise release blockers.
+
+The default transport reads an explicitly selected browser cookie database and
+refuses cross-origin redirects. It cannot authenticate SIO, for two structural
+reasons rather than a missing feature:
+
+- SIO is fronted by Shibboleth, so the application session on `s3.andrew.cmu.edu` is
+  established by a redirect chain through `login.cmu.edu` and back. `safe_request`
+  blocks that chain before transmission because it authorizes only the application
+  origin (browser cookies still obey their own domain rules), and the read returns
+  `LOGIN_OR_ORIGIN_REDIRECT_BLOCKED`;
+- the cookie Shibboleth sets has no expiry. Chromium keeps such cookies in memory, so
+  they are frequently absent from the on-disk database the default path reads, and
+  signing in again does not put them there.
+
+The draft optional `sso` extra uses an isolated browser with a closed request
+policy and saves only filtered SIO session cookies for later reads. It does not
+yet support a verified complete MFA redirect chain. **This executes a browser,
+which the default path deliberately does not do**, so it is opt-in twice: install
+the extra and set `sso.enabled`. The setup below is for development after the
+release blockers are resolved, not a working login recipe today.
+
+```sh
+python -m pip install 'cmu-cli[sso]'
+python -m playwright install chromium
+cmu-cli --config cmu-cli.json auth sso-login      # draft; unknown MFA requests blocked
+cmu-cli --config cmu-cli.json sio schedule
+```
+
+```json
+"sso": {
+  "enabled": true,
+  "state_file": "/absolute/path/to/sio-session.json"
+}
+```
+
+The CLI never programmatically reads or types a password or MFA code. During
+manual login the browser itself handles those credentials. Only secure host-scoped
+SIO `_shibsession_*` (path `/`) and `JSESSIONID` (path `/sio` or `/sio/`) cookies are
+kept; no IdP/Duo cookies, localStorage or IndexedDB is persisted or replayed.
+This candidate cookie scope still requires live protocol validation. State is
+created `0600` before any write, in a private `0700` directory without symlink
+components (use a resolved absolute path), and atomically replaced. Existing unsafe
+files/directories are rejected, never chmodded. Reads disable JavaScript and use
+GET page loads of the same two
+verified routes, and the parsers and completeness rules are unchanged -- `provenance.method`
+reports `sso_page_load` rather than `https_get`. Missing/empty scoped state reports
+`login_required` with `SSO_LOGIN_REQUIRED`; an expired session redirected to the
+IdP currently produces a sanitized transport failure, not a verified expiry diagnosis.
+
+Both default readers require explicitly passed `browser_auth` for online reads. Without it they
 return `login_required` with `EXPLICIT_BROWSER_AUTH_REQUIRED` without accessing
 cookies or the network. Construction has no credential side effects. The existing
 shared loader requires `enabled: true`, a host allowlist including
@@ -127,8 +184,9 @@ presence of recognized rows, not HTTP 200 alone.
 Requests use the shared bounded HTTPS transport with the exact SIO origin.
 Cross-origin redirects, including CMU login, are blocked before transmission;
 responses are bounded and closed. Only GET is used. Login/MFA must be completed
-manually. There is no enrollment, plan edit, drop, waitlist confirmation, browser
-execution, automatic profile discovery, or credential logging.
+manually. There is no enrollment, plan edit, drop, waitlist confirmation,
+automatic profile discovery, or credential logging. Browser execution happens only
+on the opt-in `sso` path described above, and never on the default transport.
 
 Parsed schedules/history contain private academic information: avoid public logs
 and treat saved output as sensitive. Raw DOM, hidden fields, script data, student
