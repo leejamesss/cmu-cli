@@ -789,16 +789,130 @@ def command_provider(args):
             }
     if args.json:
         print_json(result, error=error)
+    elif error is not None:
+        print(f"cmu-cli: {error['code']}\n  {error['message']}", file=sys.stderr)
     else:
-        print(
-            json.dumps(result if error is None else error, ensure_ascii=False, indent=2)
+        lines = (
+            sio_lines(result)
+            if args.command == "sio"
+            else ed_lines(args.action, result)
         )
+        print("\n".join(lines))
+        if (
+            args.command == "ed"
+            and isinstance(result, dict)
+            and result.get("complete") is False
+        ):
+            print(f"  incomplete: {_text(result.get('reason'), 'unknown')}")
         if _CONTEXT["warnings"]:
             print(
                 "cmu-cli: incomplete results; use --json for source status",
                 file=sys.stderr,
             )
     return 2 if error else (3 if _CONTEXT["warnings"] else 0)
+
+
+def _text(value: Any, fallback: str = "?") -> str:
+    text = str(value).strip() if value not in (None, "") else ""
+    return text or fallback
+
+
+def ed_lines(action: str, result: Any) -> list[str]:
+    """Readable Ed output. --json still returns the provider shape untouched."""
+    if action == "courses":
+        rows = result if isinstance(result, list) else []
+        if not rows:
+            return ["No Ed courses returned."]
+        lines = []
+        for row in rows:
+            course = row.get("course") or {}
+            role = (row.get("role") or {}).get("role")
+            suffix = f" ({role})" if role else ""
+            lines.append(
+                f"◆ {_text(course.get('code'))} — {_text(course.get('name'), '')}"
+                f" [Ed {_text(course.get('id'))}]{suffix}".replace(" — ", " — ", 1)
+            )
+        return lines
+    if action == "thread":
+        row = result if isinstance(result, dict) else {}
+        return [
+            f"◆ #{_text(row.get('number'))} {_text(row.get('title'), 'untitled')}",
+            f"  category: {_text(row.get('category'), 'none')}"
+            f" | created: {format_time(row.get('created_at'))}"
+            f" | replies: {_text(row.get('reply_count'), '0')}",
+            f"  {clean_html(row.get('document') or row.get('content')) or 'No body.'}",
+        ]
+    result = result if isinstance(result, dict) else {}
+    prefix = []
+    if "partial_listing" in result:
+        # A failed read carries the records it did collect, not matches.
+        result = result.get("partial_listing") or {}
+        prefix = [f"Partial read: {_text(result.get('reason'), 'unknown reason')}"]
+    items = result.get("items")
+    if items is None:
+        return prefix + [json.dumps(result, ensure_ascii=False, indent=2)]
+    if not items:
+        return prefix + ["Nothing returned."]
+    lines = list(prefix)
+    for row in items:
+        if action == "replies":
+            user = (row.get("user") or {}).get("name")
+            lines.append(
+                f"◆ reply {_text(row.get('id'))} by {_text(user, 'unknown')}"
+                f" | {format_time(row.get('created_at'))}"
+            )
+            body = clean_html(row.get("document") or row.get("content"))
+            if body:
+                lines.append(f"  {body}")
+        else:
+            lines.append(
+                f"◆ #{_text(row.get('number'))} {_text(row.get('title'), 'untitled')}"
+                f" | {_text(row.get('category'), 'no category')}"
+                f" | {format_time(row.get('created_at'))}"
+            )
+    return lines
+
+
+def sio_lines(result: dict[str, Any]) -> list[str]:
+    """Readable SIO output for the two parsed views and the readiness probe."""
+    view = result.get("view")
+    rows = result.get("schedule") or result.get("waitlist_history") or []
+    header = (
+        f"◆ SIO {_text(view, 'probe')} | status: {_text(result.get('status'))}"
+        f" | term: {_text(result.get('term'), 'unknown')}"
+    )
+    lines = [header]
+    if view == "semester_schedule":
+        for row in rows:
+            lines.append(
+                f"  {_text(row.get('course_code'))} {_text(row.get('section'), '')}"
+                f" — {_text(row.get('title'), 'untitled')}"
+            )
+            lines.append(
+                f"    {_text(row.get('dates'), 'dates unknown')}"
+                f" | {_text(row.get('times'), 'times unknown')}"
+                f" | {_text(row.get('building_room'), 'room unknown')}"
+                f" | {', '.join(row.get('instructors') or ['instructor unknown'])}"
+            )
+    elif view == "waitlist_history":
+        for row in rows:
+            lines.append(
+                f"  {_text(row.get('course_code'))} {_text(row.get('section'), '')}"
+                f" | on: {_text(row.get('on_date'), 'none')}"
+                f" | off: {_text(row.get('off_date'), 'none')}"
+                f" | confirmed: {_text(row.get('confirm_date'), 'none')}"
+            )
+    if view and not rows:
+        # An empty template is unknown, not a verified empty schedule.
+        lines.append("  No rows parsed. This is not a verified empty result.")
+    seen, parsed = result.get("rows_seen"), result.get("rows_parsed")
+    if seen is not None:
+        lines.append(f"  rows parsed: {parsed} of {seen} seen")
+    for warning in result.get("warnings") or []:
+        lines.append(f"  warning: {_text(warning)}")
+    if (result.get("provenance") or {}).get("url"):
+        lines.append(f"  source: {result['provenance']['url']}")
+    return lines
 
 
 def ed_identifier(value):
