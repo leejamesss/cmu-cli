@@ -356,6 +356,7 @@ def quiz_rows(client: CanvasClient, courses: list[Course]) -> list[dict[str, Any
                 "name": quiz.get("title"),
                 "kind": "quiz",
                 "due_at": timestamp(quiz.get("due_at")),
+                "due_local": format_time(quiz.get("due_at")),
                 "unlock_at": timestamp(quiz.get("unlock_at")),
                 "lock_at": timestamp(quiz.get("lock_at")),
                 "dates_raw": {
@@ -388,6 +389,7 @@ def quiz_rows(client: CanvasClient, courses: list[Course]) -> list[dict[str, Any
                 "starts_at": timestamp(row.get("starts_at")),
                 "time_inferred": True,
                 "due_at": None,
+                "due_local": format_time(None),
                 "unlock_at": None,
                 "lock_at": None,
             }
@@ -405,6 +407,20 @@ def quiz_rows(client: CanvasClient, courses: list[Course]) -> list[dict[str, Any
     )
 
 
+def quiz_time(item: dict[str, Any]) -> str:
+    """Name the time being shown; a quiz's open time is not its deadline.
+
+    The plain line used to print the unlock time in the position a reader scans for a
+    deadline, unlabelled, so a quiz that opened in July read as though it were due
+    then -- and a quiz with a real due date and no unlock time read as having none.
+    """
+    if item.get("due_at"):
+        return f"due {item['due_local']}"
+    if item.get("starts_at"):
+        return f"opens {item['starts_local']}"
+    return f"due {item['due_local']}"
+
+
 def command_quizzes(
     args: argparse.Namespace, config: Config, client: CanvasClient
 ) -> int:
@@ -416,7 +432,7 @@ def command_quizzes(
     else:
         for item in rows:
             print(
-                f"◆ {item['course']} | {item['name']} | {item.get('kind', 'quiz')} | {item['starts_local']} | {item['source']}"
+                f"◆ {item['course']} | {item['name']} | {item.get('kind', 'quiz')} | {quiz_time(item)} | {item['source']}"
             )
             if item.get("url"):
                 print(f"  {item['url']}")
