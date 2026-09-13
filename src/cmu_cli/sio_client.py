@@ -200,9 +200,11 @@ def _parse_html(html: str, *, history: bool) -> dict:
                 ("Bldg/Room", "building_room"),
             ):
                 row[key] = mapped[label].get_text(" ", strip=True) or None
-            if not all(
-                row[k]
-                for k in ("title", "instructors", "dates", "times", "building_room")
+            if (
+                not row["title"]
+                or not row["instructors"]
+                or not _unscheduled_row(row)
+                and not all(row[k] for k in MEETING_FIELDS)
             ):
                 result["warnings"].append("SCHEDULE_FIELDS_MISSING")
         rows.append(row)
@@ -222,6 +224,31 @@ def _parse_html(html: str, *, history: bool) -> dict:
         else "rendered_snapshot_required"
     )
     return result
+
+
+MEETING_FIELDS = ("dates", "times", "building_room")
+# SIO writes these where a course has no meeting pattern; an empty cell means the
+# same thing. Compared case-insensitively against the cell's collapsed text.
+UNSCHEDULED_TEXT = {"", "tba", "tba tba", "tba tba tba", "n/a", "none", "-"}
+
+
+def _unscheduled_row(row: dict) -> bool:
+    """True when the row carries no meeting pattern at all.
+
+    Directed research, independent study and thesis units are normally enrolled and
+    normally have no time, room or day. Their cells are found -- a row whose columns
+    were not recognised has already been rejected as ROW_SCHEMA_UNRECOGNIZED -- so an
+    empty one is the schedule saying "not scheduled", not the parser failing. Treating
+    it as a missing field marked the reader's whole semester incomplete, with exit 3,
+    over a course that was read correctly.
+
+    A row with *some* meeting fields filled and others empty is still reported: that
+    is the shape a real extraction failure would take.
+    """
+    return all(
+        str(row.get(key) or "").strip().lower() in UNSCHEDULED_TEXT
+        for key in MEETING_FIELDS
+    )
 
 
 def parse_semester_schedule(html: str) -> dict:
