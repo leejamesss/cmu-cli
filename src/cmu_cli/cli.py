@@ -144,6 +144,16 @@ def course_files(client: CanvasClient, course: Course) -> list[dict[str, Any]]:
     )
 
 
+def platform_state(course: dict[str, Any], platform: str) -> str:
+    """A Canvas launch tab is not a configured provider URL; say so rather than
+    reporting a course as configured when the reader has nothing to read."""
+    if course[f"{platform}_configured"]:
+        return "configured"
+    if course.get(f"{platform}_in_canvas"):
+        return "in Canvas, URL not configured"
+    return "not configured"
+
+
 def command_status(
     args: argparse.Namespace, config: Config, client: CanvasClient
 ) -> int:
@@ -166,6 +176,8 @@ def command_status(
                     "canvas": "ok" if live else "missing",
                     "piazza_configured": bool(platforms["piazza"]),
                     "gradescope_configured": bool(platforms["gradescope"]),
+                    "piazza_in_canvas": bool(platforms["piazza_canvas_tab"]),
+                    "gradescope_in_canvas": bool(platforms["gradescope_canvas_tab"]),
                 }
             )
     except (CanvasError, BrowserError):
@@ -181,9 +193,11 @@ def command_status(
         if result.get("error"):
             print(f"Reason: {result['error']}")
         for course in result["courses"]:
-            print(
-                f"◆ {course['code']} Canvas={course['canvas']} Piazza={'configured' if course['piazza_configured'] else 'not configured'} Gradescope={'configured' if course['gradescope_configured'] else 'not configured'}"
+            states = " ".join(
+                f"{name.title()}={platform_state(course, name)}"
+                for name in ("piazza", "gradescope")
             )
+            print(f"◆ {course['code']} Canvas={course['canvas']} {states}")
     return 3 if result.get("error") else 0
 
 
@@ -522,18 +536,31 @@ def command_announcements(
 def discovered_platform_urls(
     client: CanvasClient, course: Course
 ) -> dict[str, str | None]:
-    result = {
+    """Configured provider URLs, plus any Canvas launch tab for the same provider.
+
+    A Canvas tab labelled "Piazza" is an LTI launch point on the Canvas origin, not a
+    Piazza URL: it carries no class network ID, and ``posts`` cannot read a feed from
+    it. Reporting it as the provider URL made ``status`` claim Piazza was configured
+    for a course where ``posts`` then returned nothing. Keep the launch tab as its own
+    signal -- it is worth telling someone the course uses Piazza -- and leave the
+    provider URLs to the configuration that the readers actually use.
+    """
+    result: dict[str, str | None] = {
         "canvas": f"{client.base_url}/courses/{course.canvas_id}",
         "piazza": course.piazza_url,
         "gradescope": course.gradescope_url,
+        "piazza_canvas_tab": None,
+        "gradescope_canvas_tab": None,
     }
     for tab in client.tabs(course.canvas_id):
         label = (tab.get("label") or "").lower()
         url = tab.get("html_url")
-        if "piazza" in label and url and not result["piazza"]:
-            result["piazza"] = urljoin(client.base_url, url)
-        if "gradescope" in label and url and not result["gradescope"]:
-            result["gradescope"] = urljoin(client.base_url, url)
+        if not url:
+            continue
+        for platform in ("piazza", "gradescope"):
+            key = f"{platform}_canvas_tab"
+            if platform in label and not result[key]:
+                result[key] = urljoin(client.base_url, url)
     return result
 
 
@@ -573,6 +600,9 @@ def command_platforms(
             print(f"◆ {row['course']}")
             for platform in ["canvas", "piazza", "gradescope"]:
                 print(f"  {platform}: {row.get(platform) or 'not configured'}")
+                tab = row.get(f"{platform}_canvas_tab")
+                if tab and not row.get(platform):
+                    print(f"    (opens from Canvas: {tab})")
     return 0
 
 
