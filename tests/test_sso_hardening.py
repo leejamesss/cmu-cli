@@ -446,7 +446,9 @@ def test_read_passive_suppression_does_not_weaken_active_guard(tmp_path, kind, m
     assert blocked
 
 
-def test_routing_revalidates_synthetic_redirect_and_prevents_script_posts(tmp_path):
+def test_routing_revalidates_synthetic_redirect_and_prevents_script_posts(
+    tmp_path, monkeypatch
+):
     session = sso.SsoSession(tmp_path / "state.json")
     context = FakeContext()
     page, blocked = session._guard(context, login=True)
@@ -460,13 +462,14 @@ def test_routing_revalidates_synthetic_redirect_and_prevents_script_posts(tmp_pa
             frame=page.main_frame if frame is None else frame,
         )
 
-        def fetch(**kwargs):
-            assert kwargs["max_redirects"] == 0
+        def fetch(request, **kwargs):
+            assert kwargs["limit"] == sso.MAX_RESPONSE_BYTES
             ledger.append((method, url))
-            return SimpleNamespace(dispose=lambda: None)
+            return {"status": 200, "headers": {}, "body": b"synthetic"}
 
+        monkeypatch.setattr(sso, "bounded_response", fetch)
         route = SimpleNamespace(
-            request=req, fetch=fetch, fulfill=lambda **kw: None, abort=lambda: None
+            request=req, fulfill=lambda **kw: None, abort=lambda: None
         )
         context.callback(route)
 
@@ -477,9 +480,15 @@ def test_routing_revalidates_synthetic_redirect_and_prevents_script_posts(tmp_pa
     assert ledger == [("GET", URL)]
     assert len(blocked) == 3
     closed = []
-    context.socket_callback(SimpleNamespace(close=lambda: closed.append(True)))
+    context.socket_callback(
+        SimpleNamespace(
+            close=lambda: pytest.fail("synchronous socket close can deadlock"),
+            connect_to_server=lambda: pytest.fail("socket must never connect"),
+        )
+    )
     context.popup_callback(SimpleNamespace(close=lambda: closed.append(True)))
-    assert closed == [True, True]
+    assert closed == [True]
+    assert len(blocked) == 4
 
 
 @pytest.mark.parametrize("stage", ["new_context", "new_page", "goto", "storage"])

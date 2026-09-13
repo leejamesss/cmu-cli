@@ -11,12 +11,19 @@ Adapted from the opt-in implementation by @HorizonWind2004.
 from __future__ import annotations
 
 import contextlib
+import html
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 from .sso_state import read_state, write_state
+from .sso_transport import (
+    MAX_CONTEXT_BYTES,
+    MAX_CONTEXT_REQUESTS,
+    MAX_RESPONSE_BYTES,
+    bounded_response,
+)
 
 if TYPE_CHECKING:
     from playwright.sync_api import BrowserContext
@@ -201,10 +208,10 @@ class SsoSession:
     def _guard(self, context, *, login):
         blocked = []
         primary = []
+        budget = {"bytes": 0, "requests": 0}
 
         def route_request(route):
             request = route.request
-            response = None
             try:
                 # Read parsing needs markup only. Suppress passive presentation
                 # requests without sending them or treating their absence as an
@@ -226,26 +233,68 @@ class SsoSession:
                     blocked.append(True)
                     route.abort()
                     return
-                # Playwright route.continue_ can follow a redirect without another
-                # route callback. Fetch exactly ONE response and fulfill it instead.
-                # A browser redirect then creates a new independently checked request.
-                response = route.fetch(max_redirects=0, timeout=30_000)
-                route.fulfill(response=response)
-            except Exception:  # noqa: BLE001 -- fail closed in external callbacks
+                # Never use route.fetch: it buffers an unbounded response. The
+                # streaming single-hop transport returns only a capped body and
+                # fulfillment makes every redirect a newly checked browser request.
+                budget["requests"] += 1
+                remaining = MAX_CONTEXT_BYTES - budget["bytes"]
+                if budget["requests"] > MAX_CONTEXT_REQUESTS or remaining <= 0:
+                    raise SsoError("SSO response budget exceeded")
+                response = bounded_response(
+                    request, limit=min(MAX_RESPONSE_BYTES, remaining)
+                )
+                budget["bytes"] += len(response["body"])
+                if 300 <= response["status"] < 400:
+                    # Chromium does not route subsequent HTTP redirect hops.
+                    # Convert approved document GET redirects into fresh navigation
+                    # so every hop is intercepted; never replay POST implicitly.
+                    location = next(
+                        (
+                            value
+                            for key, value in response["headers"].items()
+                            if key.lower() == "location"
+                        ),
+                        None,
+                    )
+                    target = urljoin(request.url, location) if location else ""
+                    if (
+                        response["status"] not in {301, 302, 303, 307, 308}
+                        or request.resource_type != "document"
+                        or (
+                            request.method != "GET"
+                            and response["status"] not in {301, 302, 303}
+                        )
+                        or not allowed_request(target, "GET", "document", login=login)
+                    ):
+                        raise SsoError("SSO redirect outside approved boundary")
+                    response["status"] = 200
+                    response["headers"] = {
+                        key: value
+                        for key, value in response["headers"].items()
+                        if key.lower() == "set-cookie"
+                    }
+                    response["headers"]["Content-Type"] = "text/html; charset=utf-8"
+                    response["body"] = (
+                        '<meta http-equiv="refresh" content="0;url='
+                        + html.escape(target, quote=True)
+                        + '">'
+                    ).encode()
+                route.fulfill(**response)
+            except Exception as exc:  # noqa: BLE001 -- fail closed in external callbacks
+                if os.environ.get("CMU_SSO_PROBE_DIAGNOSTICS") == "1":
+                    print("SSO route failure: " + type(exc).__name__, flush=True)
                 blocked.append(True)
                 with contextlib.suppress(Exception):
                     route.abort()
-            finally:
-                if response is not None:
-                    with contextlib.suppress(Exception):
-                        response.dispose()
 
-        def close_socket(socket):
+        def block_socket(socket):
+            # A routed socket is disconnected from the network by default.
+            # Do not call connect_to_server. Synchronous close inside this callback
+            # deadlocks some Playwright engines; context cleanup disposes the mock.
             blocked.append(True)
-            socket.close()
 
         context.route("**/*", route_request)
-        context.route_web_socket("**/*", close_socket)
+        context.route_web_socket("**/*", block_socket)
         page = context.new_page()
         primary.append(page)
         context.on("page", lambda popup: popup.close())
