@@ -1,6 +1,8 @@
 """Own Canvas grades; server values only, never transcript grades or estimates."""
 
-from .canvas_client import CanvasError
+import json
+
+from .canvas_client import CanvasEndpointUnavailable, CanvasError
 from .submissions import submission_state
 
 
@@ -148,17 +150,49 @@ def own_enrollments(client, user_id, course_id):
     return result
 
 
+def grade_fetch(source, course, function):
+    """Keep the common envelope while identifying known permission failures."""
+    from . import cli
+
+    reason = None
+
+    def read():
+        nonlocal reason
+        try:
+            return function()
+        except CanvasEndpointUnavailable as exc:
+            reason = {
+                401: "authentication_required",
+                403: "permission_denied",
+                404: "not_found",
+            }.get(exc.status_code)
+            raise
+
+    result = cli.fetch(source, course, read)
+    if reason:
+        cli._CONTEXT["sources"][-1]["unavailable_reason"] = reason
+        cli._CONTEXT["warnings"][-1]["unavailable_reason"] = reason
+    return result
+
+
+def own_identity(client):
+    profile = client.get("/api/v1/users/self/profile")
+    if not isinstance(profile, dict):
+        raise CanvasError("Canvas returned an invalid profile")
+    return identifier(profile.get("id"))
+
+
 def command_grades(args, config, client):
     from . import cli, style
 
-    user_id = identifier(client.get("/api/v1/users/self/profile").get("id"))
+    user_id = grade_fetch("canvas.self_profile", None, lambda: own_identity(client))
     result = {
         "assignments": [],
         "enrollments": [],
         "scope": "configured courses; own visible Canvas grades, not SIO transcript",
     }
-    for course in cli.select_courses(config, args.course):
-        payload = cli.fetch(
+    for course in cli.select_courses(config, args.course) if user_id else []:
+        payload = grade_fetch(
             "canvas.self_submissions",
             course.code,
             lambda course=course: own_assignments(
@@ -167,11 +201,22 @@ def command_grades(args, config, client):
         )
         if payload:
             assignments, submissions = payload
+            missing = [a["id"] for a in assignments if a["id"] not in submissions]
+            if missing:
+                cli._CONTEXT["sources"][-1]["status"] = "partial"
+                cli._CONTEXT["warnings"].append(
+                    {
+                        "code": "SUBMISSIONS_NOT_RETURNED",
+                        "source": "canvas.self_submissions",
+                        "course": course.code,
+                        "assignment_ids": missing,
+                    }
+                )
             result["assignments"].extend(
                 normalize_grade(a, submissions.get(a["id"]), course.code, args.details)
                 for a in assignments
             )
-        totals = cli.fetch(
+        totals = grade_fetch(
             "canvas.self_enrollments",
             course.code,
             lambda course=course: own_enrollments(client, user_id, course.canvas_id),
@@ -202,6 +247,18 @@ def command_grades(args, config, client):
             plain,
             empty="No assignment grades returned; inspect source status.",
         )
+        if args.details:
+            for row in result["assignments"]:
+                print(
+                    f"  Feedback for {row['course']} assignment {row['id']}: "
+                    + json.dumps(
+                        {
+                            key: row.get(key)
+                            for key in ("submission_comments", "rubric_assessment")
+                        },
+                        ensure_ascii=True,
+                    )
+                )
         for row in result["enrollments"]:
             print(
                 f"◆ {row['course']} | Canvas current={cli._text(row['current_score'])} final={cli._text(row['final_score'])} | current grade={cli._text(row['current_grade'])} final grade={cli._text(row['final_grade'])} | enrollment {row['id']} (not SIO)"

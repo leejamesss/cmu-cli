@@ -3,13 +3,13 @@
 import io
 
 import requests
-from requests.adapters import BaseAdapter
 
 from cmu_cli.canvas_client import CanvasClient
+from cmu_cli.public_transport import PublicHTTPSAdapter
 from tests.test_ed_client import synthetic_session
 
 
-class DownloadTransport(BaseAdapter):
+class DownloadTransport(PublicHTTPSAdapter):
     def __init__(self, replies):
         self.replies = iter(replies)
         self.sent = []

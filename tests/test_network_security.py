@@ -7,19 +7,19 @@ from unittest.mock import Mock
 
 import pytest
 import requests
-from requests.adapters import BaseAdapter
 
 from cmu_cli import web_session
 from cmu_cli.canvas_client import CanvasClient, CanvasEndpointUnavailable, CanvasError
 from cmu_cli.gradescope_client import GradescopeClient, GradescopeError
 from cmu_cli.models import Course
 from cmu_cli.piazza_client import PiazzaClient, PiazzaError
+from cmu_cli.public_transport import PublicHTTPSAdapter
 
 REAL_REQUEST = requests.Session.request
 BASE = "https://canvas.example.invalid"
 
 
-class MemoryAdapter(BaseAdapter):
+class MemoryAdapter(PublicHTTPSAdapter):
     def __init__(self, replies):
         self.replies = iter(replies)
         self.seen = []

@@ -168,6 +168,11 @@ def safe_request(
     Anonymous callers must supply a fresh configured_session. Clear any cookies
     set by earlier responses so redirects cannot turn public downloads into auth.
     """
+    if anonymous:
+        from .public_transport import PublicHTTPSAdapter
+
+        if not isinstance(session.get_adapter("https://"), PublicHTTPSAdapter):
+            session.mount("https://", PublicHTTPSAdapter(max_retries=0))
     seen = set()
     session.trust_env = False
     # Requests normally consumes redirect bodies while constructing Response.next,
@@ -184,8 +189,13 @@ def safe_request(
         if anonymous:
             session.cookies.clear()
             session.auth = None
-            session.headers.pop("Authorization", None)
-            session.headers.pop("Cookie", None)
+            session.headers.clear()
+            session.headers["User-Agent"] = "cmu_cli/0.1"
+            session.params = {}
+            session.hooks = {"response": []}
+            session.proxies.clear()
+            session.cert = None
+            session.verify = True
         try:
             kwargs = {
                 "params": params,
