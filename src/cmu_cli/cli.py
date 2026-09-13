@@ -637,7 +637,7 @@ def command_sync(args: argparse.Namespace, config: Config, client: CanvasClient)
 def command_provider(args):
     from .ed_client import EdAuthError, EdClient, EdError
     from .models import load_provider_config
-    from .sio_client import SIOClient, SIOError
+    from .sio_client import SIO_ORIGIN, SIOClient, SIOError
 
     config = load_provider_config(args.config)
     source = args.command if args.command == "sio" else "ed." + args.action
@@ -650,7 +650,12 @@ def command_provider(args):
     error = None
     try:
         if args.command == "sio":
-            client = SIOClient(browser_auth=config.browser_auth)
+            from .sso_session import session_from_config
+
+            client = SIOClient(
+                browser_auth=config.browser_auth,
+                sso=session_from_config(config.sso, hosts=[SIO_ORIGIN[1]]),
+            )
             readers = {
                 "schedule": "semester_schedule",
                 "waitlist-history": "waitlist_history",
@@ -776,8 +781,8 @@ def parser() -> argparse.ArgumentParser:
     configuration.add_argument("--output", type=Path, default=Path("cmu-cli.json"))
     configuration.add_argument("--json", action="store_true")
     auth = commands.add_parser("auth", help="Offline OAuth registration preflight only")
-    auth.add_argument("action", choices=["check-registration"])
-    auth.add_argument("--registration", type=Path, required=True)
+    auth.add_argument("action", choices=["check-registration", "sso-login"])
+    auth.add_argument("--registration", type=Path)
     auth.add_argument("--json", action="store_true")
     doctor = commands.add_parser(
         "doctor", help="Offline diagnostics; does not authenticate"
@@ -861,6 +866,34 @@ def main() -> None:
                     print(result["assignment_index"])
                     print("Generated exports (temporary; removed after demo):")
                     print("\n".join(result["exports"]))
+                return
+            if args.command == "auth" and args.action == "sso-login":
+                from .sio_client import SIO_ORIGIN, SIO_URL
+                from .sso_session import SsoError, session_from_config
+
+                session = session_from_config(
+                    load_config(args.config).sso, hosts=[SIO_ORIGIN[1]]
+                )
+                if session is None:
+                    print(
+                        'cmu-cli: set "sso": {"enabled": true, "state_file": '
+                        '"/absolute/path"} in your configuration first; see '
+                        "docs/sio.md",
+                        file=sys.stderr,
+                    )
+                    raise SystemExit(2)
+                try:
+                    count = session.login(SIO_URL)
+                except SsoError as exc:
+                    # Authored in sso_session from a closed set of literals, so there
+                    # is no provider detail to strip.
+                    print(f"cmu-cli: {exc}", file=sys.stderr)
+                    raise SystemExit(2) from None
+                result = {"signed_in": True, "cookies_stored": count}
+                print_json(result) if args.json else print(
+                    f"Signed in; {count} cookies stored in {session.state_file}. "
+                    "No password or MFA code was read or kept."
+                )
                 return
             if args.command == "config" and args.action == "init":
                 template = (

@@ -19,6 +19,10 @@ Issues = "https://github.com/leejamesss/cmu-cli/issues"
 
 [project.optional-dependencies]
 browser = ["browser-cookie3>=0.20,<1"]
+# SIO only. Its application session is established by a Shibboleth redirect that the
+# default transport blocks before transmission, so reaching it needs a browser engine
+# that completes the chain. Opt-in twice: install this, and set sso.enabled.
+sso = ["playwright>=1.49,<2"]
 dev = ["pytest>=8,<10", "build>=1.2,<2", "twine>=5,<7", "jsonschema>=4.20,<5", "ruff==0.15.6"]
 
 [tool.ruff]

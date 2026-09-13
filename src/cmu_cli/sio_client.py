@@ -243,8 +243,11 @@ class SIOClient:
     No automatic credential discovery or JavaScript/browser execution occurs.
     """
 
-    def __init__(self, *, browser_auth: dict | None = None):
+    def __init__(self, *, browser_auth: dict | None = None, sso=None):
         self.browser_auth = browser_auth
+        # Set only from an explicitly enabled configuration block; None keeps the
+        # existing cookie-database transport and every guarantee that comes with it.
+        self.sso = sso
 
     def semester_schedule(self) -> dict:
         """Read the default selected semester; no guessed term query parameters."""
@@ -255,6 +258,8 @@ class SIOClient:
         return self._read_view(WAITLIST_HISTORY_URL, parse_waitlist_history)
 
     def _read_view(self, url, parser) -> dict:
+        if self.sso is not None:
+            return self._read_view_over_sso(url, parser)
         if self.browser_auth is None:
             result = parser("")
             result.update(
@@ -291,6 +296,29 @@ class SIOClient:
             else:
                 raise SIOError("SIO session or transport unavailable") from None
         result["provenance"]["method"] = "https_get"
+        return result
+
+    def _read_view_over_sso(self, url, parser) -> dict:
+        """Read the page through an explicitly authorized Shibboleth session.
+
+        The cookie-database transport cannot reach these views: the application
+        session is established by a redirect through login.cmu.edu, which
+        safe_request blocks before transmission. Only the fetch differs -- the same
+        parser runs on the same markup, and the same completeness rules apply.
+        """
+        from .sso_session import NeedsLogin, SsoError
+
+        try:
+            html = self.sso.fetch(url)
+        except NeedsLogin:
+            result = parser("")
+            result.update(status="login_required", warnings=["SSO_LOGIN_REQUIRED"])
+            result["provenance"]["method"] = "not_requested"
+            return result
+        except SsoError:
+            raise SIOError("SIO session or transport unavailable") from None
+        result = parser(html[:MAX_DOCUMENT_BYTES])
+        result["provenance"]["method"] = "sso_page_load"
         return result
 
     def probe(self) -> dict:

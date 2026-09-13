@@ -34,6 +34,48 @@ history = parse_waitlist_history(html)
 Neither accepts guessed term parameters or changes the selected semester.
 Constants are `SEMESTER_SCHEDULE_URL` and `WAITLIST_HISTORY_URL`.
 
+## Reaching SIO: two transports
+
+The default transport reads an explicitly selected browser cookie database and
+refuses cross-origin redirects. It cannot authenticate SIO, for two structural
+reasons rather than a missing feature:
+
+- SIO is fronted by Shibboleth, so the application session on `s3.andrew.cmu.edu` is
+  established by a redirect chain through `login.cmu.edu` and back. `safe_request`
+  blocks that chain before transmission -- correctly, since following it would send
+  cookies to another origin -- and the read returns
+  `LOGIN_OR_ORIGIN_REDIRECT_BLOCKED`;
+- the cookie Shibboleth sets has no expiry. Chromium keeps such cookies in memory, so
+  they are frequently absent from the on-disk database the default path reads, and
+  signing in again does not put them there.
+
+The optional `sso` extra takes the other route: a real browser engine completes the
+redirect chain, and the resulting storage state -- which does include session cookies
+-- is saved and replayed for later reads. **This executes a browser, which the
+default path deliberately does not do**, so it is opt-in twice: install the extra,
+and set `sso.enabled`.
+
+```sh
+python -m pip install 'cmu-cli[sso]'
+python -m playwright install chromium
+cmu-cli --config cmu-cli.json auth sso-login      # a window opens; you sign in
+cmu-cli --config cmu-cli.json sio schedule
+```
+
+```json
+"sso": {
+  "enabled": true,
+  "state_file": "/absolute/path/to/sio-session.json"
+}
+```
+
+No password, MFA code or other credential is read, typed, stored or logged. You
+authenticate in a window you can see, and only the resulting cookies are kept, in a
+file written `0600` that you can delete. Reads remain GET page loads of the same two
+verified routes, and the parsers and completeness rules are unchanged -- `provenance.method`
+reports `sso_page_load` rather than `https_get`. An expired session reports
+`login_required` with `SSO_LOGIN_REQUIRED`.
+
 Both require explicitly passed `browser_auth` for online reads. Without it they
 return `login_required` with `EXPLICIT_BROWSER_AUTH_REQUIRED` without accessing
 cookies or the network. Construction has no credential side effects. The existing
@@ -127,8 +169,9 @@ presence of recognized rows, not HTTP 200 alone.
 Requests use the shared bounded HTTPS transport with the exact SIO origin.
 Cross-origin redirects, including CMU login, are blocked before transmission;
 responses are bounded and closed. Only GET is used. Login/MFA must be completed
-manually. There is no enrollment, plan edit, drop, waitlist confirmation, browser
-execution, automatic profile discovery, or credential logging.
+manually. There is no enrollment, plan edit, drop, waitlist confirmation,
+automatic profile discovery, or credential logging. Browser execution happens only
+on the opt-in `sso` path described above, and never on the default transport.
 
 Parsed schedules/history contain private academic information: avoid public logs
 and treat saved output as sensitive. Raw DOM, hidden fields, script data, student
