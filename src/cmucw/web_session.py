@@ -21,6 +21,21 @@ class SessionError(RuntimeError):
     pass
 
 
+class CrossOriginRedirect(SessionError):
+    """An origin-pinned request was redirected off its origin.
+
+    A SessionError like before -- existing callers and tests that catch SessionError
+    are unaffected -- but it carries the destination, so a caller that knows the
+    target is self-authenticating (a pre-signed download URL) can fetch it without
+    credentials instead of giving up. The credential boundary is unchanged: nothing
+    authenticated ever leaves the pinned origin.
+    """
+
+    def __init__(self, location: str):
+        super().__init__("Authenticated request must remain on its exact HTTPS origin")
+        self.location = location
+
+
 def https_origin(url: str) -> tuple[str, str, int]:
     """Validate before transmission, including userinfo and ambiguous URL syntax."""
     try:
@@ -150,9 +165,7 @@ def safe_request(
     for hop in range(MAX_REDIRECTS + 1):
         target_origin = https_origin(url)
         if origin is not None and target_origin != origin:
-            raise SessionError(
-                "Authenticated request must remain on its exact HTTPS origin"
-            )
+            raise CrossOriginRedirect(url)
         if url in seen:
             raise SessionError("HTTP redirect loop detected")
         seen.add(url)
