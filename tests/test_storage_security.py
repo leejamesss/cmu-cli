@@ -42,12 +42,12 @@ def test_predictable_part_symlink_is_not_used(tmp_path):
 @pytest.mark.parametrize(
     "relative",
     [
-        ".cmu-cli/assignments.json",
-        ".cmu-cli/files.json",
-        ".cmu-cli/announcements.json",
-        ".cmu-cli/modules.json",
-        ".cmu-cli/download_manifest.json",
-        ".cmu-cli/last_sync.json",
+        ".cmucw/assignments.json",
+        ".cmucw/files.json",
+        ".cmucw/announcements.json",
+        ".cmucw/modules.json",
+        ".cmucw/download_manifest.json",
+        ".cmucw/last_sync.json",
         "02_作业/Canvas作业索引.md",
         "00_课程信息/Canvas通知索引.md",
     ],
@@ -69,13 +69,13 @@ def test_all_export_leaf_symlinks_fail_closed(tmp_path, relative, dangling):
 
 
 @pytest.mark.parametrize(
-    "relative", ["01_讲义", ".cmu-cli", ".cmu-cli/versions", ".cmu-cli/versions/1"]
+    "relative", ["01_讲义", ".cmucw", ".cmucw/versions", ".cmucw/versions/1"]
 )
 def test_directory_symlinks_cannot_redirect_writes(tmp_path, relative):
     root = tmp_path / "root"
     root.mkdir()
     manifest = {}
-    if relative.startswith(".cmu-cli"):
+    if relative.startswith(".cmucw"):
         sync(root, manifest)
     outside = tmp_path / "outside"
     outside.mkdir()
@@ -148,7 +148,7 @@ def test_unmanaged_file_and_occupied_conflict_preserved(tmp_path):
 def test_archives_unique_even_with_repeated_revision_and_legacy_link(tmp_path):
     manifest = {}
     sync(tmp_path, manifest)
-    archive_dir = tmp_path / ".cmu-cli/versions/1"
+    archive_dir = tmp_path / ".cmucw/versions/1"
     archive_dir.mkdir(parents=True)
     victim = tmp_path / "victim"
     victim.write_bytes(b"USER")
@@ -215,7 +215,7 @@ def test_missing_file_path_remains_owned(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "path", [".cmu-cli/assignments.json", "00_课程信息/Canvas通知索引.md"]
+    "path", [".cmucw/assignments.json", "00_课程信息/Canvas通知索引.md"]
 )
 def test_manifest_cannot_claim_internal_exports(tmp_path, path):
     with pytest.raises(ValueError):

@@ -41,12 +41,12 @@ The following `data` fields were captured from the demo, not a live course. Enve
     }
   ],
   "exports": [
-    ".cmu-cli/announcements.json",
-    ".cmu-cli/assignments.json",
-    ".cmu-cli/download_manifest.json",
-    ".cmu-cli/files.json",
-    ".cmu-cli/last_sync.json",
-    ".cmu-cli/modules.json",
+    ".cmucw/announcements.json",
+    ".cmucw/assignments.json",
+    ".cmucw/download_manifest.json",
+    ".cmucw/files.json",
+    ".cmucw/last_sync.json",
+    ".cmucw/modules.json",
     "00_课程信息/Canvas通知索引.md",
     "02_作业/Assignment_01/hw1.txt",
     "02_作业/Canvas作业索引.md"

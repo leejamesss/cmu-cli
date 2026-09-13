@@ -55,8 +55,6 @@ def test_recitation_sync_unchanged_and_revision(tmp_path):
     assert (
         tmp_path / "03_Recitations/Recitation_01_Handout.pdf"
     ).read_bytes() == b"two"
-    archived = [
-        p for p in (tmp_path / ".cmu-cli/versions").rglob("*.pdf") if p.is_file()
-    ]
+    archived = [p for p in (tmp_path / ".cmucw/versions").rglob("*.pdf") if p.is_file()]
     assert len(archived) == 1
     assert archived[0].read_bytes() == b"one"

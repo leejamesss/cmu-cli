@@ -33,7 +33,7 @@ def test_demo_workflow_is_reproducible():
     first = run_demo()
     assert first == run_demo()
     assert [a["submitted"] for a in first["assignments"]] == [True, False, None]
-    assert ".cmu-cli/download_manifest.json" in first["exports"]
+    assert ".cmucw/download_manifest.json" in first["exports"]
     assert "Bring your questions" in first["announcement_index"]
     assert "未知" in first["assignment_index"]
 

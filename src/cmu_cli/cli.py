@@ -331,6 +331,7 @@ def command_assignments(
                 ("Due", "due_local"),
                 ("Status", "status"),
                 ("Source", "source"),
+                ("URL", "url"),
             ],
             rows,
             plain,

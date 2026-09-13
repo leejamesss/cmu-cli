@@ -22,7 +22,7 @@ def interactive(stream=None) -> bool:
     stream = stream or sys.stdout
     if os.environ.get("NO_COLOR") or os.environ.get("TERM") == "dumb":
         return False
-    if os.environ.get("CLICOLOR_FORCE"):
+    if os.environ.get("CLICOLOR_FORCE", "0") not in ("", "0"):
         return True
     try:
         return bool(stream.isatty())

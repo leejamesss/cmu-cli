@@ -8,7 +8,7 @@ import io
 
 import pytest
 
-from cmucw import style
+from cmu_cli import style
 
 
 class FakeTTY(io.StringIO):

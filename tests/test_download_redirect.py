@@ -9,8 +9,8 @@ credentials do not travel.
 import pytest
 import requests
 
-from cmucw.canvas_client import CanvasClient
-from cmucw.web_session import CrossOriginRedirect, SessionError, safe_request
+from cmu_cli.canvas_client import CanvasClient
+from cmu_cli.web_session import CrossOriginRedirect, SessionError, safe_request
 
 CANVAS = "https://canvas.example.invalid"
 SIGNED = "https://files.example.invalid/f.pdf?X-Amz-Signature=abc"
@@ -72,7 +72,7 @@ def test_credentials_do_not_follow_the_redirect(monkeypatch):
             )
         ]
     )
-    monkeypatch.setattr("cmucw.canvas_client.configured_session", lambda: anon)
+    monkeypatch.setattr("cmu_cli.canvas_client.configured_session", lambda: anon)
 
     client = CanvasClient(CANVAS, authed)
     assert client.download_bytes(f"{CANVAS}/files/1") == b"%PDF-"
@@ -109,7 +109,7 @@ def test_a_redirect_to_a_login_page_is_still_refused(monkeypatch):
     anon = RecordingSession(
         [FakeResponse(200, {"Content-Type": "text/html"}, b"<!doctype html><form>")]
     )
-    monkeypatch.setattr("cmucw.canvas_client.configured_session", lambda: anon)
+    monkeypatch.setattr("cmu_cli.canvas_client.configured_session", lambda: anon)
     client = CanvasClient(CANVAS, authed)
     with pytest.raises(Exception) as caught:
         client.download_bytes(f"{CANVAS}/files/1")

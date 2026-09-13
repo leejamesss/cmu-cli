@@ -54,7 +54,8 @@ def main():
     env = {
         k: v
         for k, v in os.environ.items()
-        if k not in ("PYTHONPATH", "PYTHONHOME") and not k.startswith("CMU_CLI_")
+        if k not in ("PYTHONPATH", "PYTHONHOME")
+        and not k.startswith(("CMU_CLI_", "CMUCW_"))
     }
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     (output / "home").mkdir()
@@ -120,9 +121,16 @@ def main():
         [
             python,
             "-c",
-            'import cmu_cli; assert "site-packages" in cmu-cli.__file__; print(cmu-cli.__file__)',
+            'import cmu_cli; assert "site-packages" in cmu_cli.__file__; print(cmu_cli.__file__)',
         ],
     )
+    for executable in ("cmu-cli", "cmucw"):
+        run(executable + "-entry-help", [output / "env/bin" / executable, "--help"])
+        run(
+            executable + "-entry-demo",
+            [output / "env/bin" / executable, "demo", "--json"],
+        )
+    run("legacy-module", [python, "-m", "cmucw", "--help"])
     for label, command in [
         ("help", ["--help"]),
         ("version", ["--version"]),
@@ -132,19 +140,19 @@ def main():
         ("validate", ["--config", "cmu-cli.json", "config", "validate", "--json"]),
         ("doctor", ["--config", "cmu-cli.json", "doctor", "--json"]),
     ]:
-        run(label, [python, "-m", "cmu-cli", *command])
+        run(label, [python, "-m", "cmu_cli", *command])
     run(
         "posts-without-opt-in",
-        [python, "-m", "cmu-cli", "--config", "cmu-cli.json", "posts", "--json"],
+        [python, "-m", "cmu_cli", "--config", "cmu-cli.json", "posts", "--json"],
         expected=3,
     )
     run(
         "ed-without-token",
-        [python, "-m", "cmu-cli", "ed", "courses", "--json"],
+        [python, "-m", "cmu_cli", "ed", "courses", "--json"],
         expected=2,
     )
     for provider in ("ed", "sio"):
-        run(provider + "-help", [python, "-m", "cmu-cli", provider, "--help"])
+        run(provider + "-help", [python, "-m", "cmu_cli", provider, "--help"])
     shutil.copytree(
         source / "tests", output / "tests", ignore=shutil.ignore_patterns("__pycache__")
     )

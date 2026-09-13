@@ -58,6 +58,12 @@ python -m pip install .
 cmu-cli --version
 ```
 
+## Upgrading from cmucw
+
+The distribution and primary command are now `cmu-cli`; Python APIs live only in
+`cmu_cli`. The `cmucw` command and `python -m cmucw` remain thin launch aliases.
+See [migration and precedence](docs/migration.md) before replacing an old install.
+
 ## Quick start
 
 Everything here runs offline, with no credentials and no network:
@@ -215,8 +221,9 @@ python -m pytest -q
 python scripts/release_check.py
 ```
 
-The suite is offline and needs no credentials, so it runs anywhere. Please keep it that
-way: synthetic fixtures, never real coursework.
+Supported systems are macOS and Linux with POSIX no-follow filesystem operations;
+Windows storage writes fail closed and Windows is not supported. CI tests Linux and
+macOS with Python 3.10 and 3.13. Tests are offline: synthetic fixtures, never real coursework.
 
 ## Community
 

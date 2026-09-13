@@ -21,7 +21,7 @@ matching ``SCHEDULE_LABELS``/``HISTORY_LABELS`` below. No page content is reprod
 here.
 """
 
-from cmucw import sio_client as sio
+from cmu_cli import sio_client as sio
 
 SCHEDULE_LABELS = ["Course", "Instructor", "Dates", "Times", "Bldg/Room"]
 HISTORY_LABELS = [
@@ -99,11 +99,9 @@ def test_leading_cell_is_a_row_header():
     assert row["building_room"] == "EX 1234"
 
 
-def test_instructor_addresses_are_not_reported_as_names():
+def test_instructor_display_block_text_is_preserved():
     row = sio.parse_semester_schedule(_page(rows=[SCHEDULE_ROW]))["schedule"][0]
-    assert row["instructors"] == ["Example Teacher example@example.invalid"] or all(
-        "@" not in name for name in row["instructors"]
-    )
+    assert row["instructors"] == ["Example Teacher example@example.invalid"]
 
 
 def test_unlabelled_trailing_cell_is_ignored():
