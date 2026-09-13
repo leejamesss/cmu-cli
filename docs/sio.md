@@ -147,8 +147,8 @@ Plan totals are not enrollment. `SIO_URL`, `PLAN_URL`, `REGISTRATION_URL`, and
 ## Verification
 
 ```sh
-PYTHONPATH=src /tmp/cmu-cli-cli-fresh/bin/python -m pytest -q
-/tmp/cmu-cli-cli-fresh/bin/python -m ruff check .
+PYTHONPATH=src python -m pytest -q
+python -m ruff check .
 ```
 
 Local private-snapshot parser verification recovered three of three semester

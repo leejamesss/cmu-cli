@@ -1,6 +1,6 @@
 # Ed Discussion (read-only adapter)
 
-`cmu-cli.ed_client.EdClient` implements real GET requests using cmu-cli's existing
+`cmu_cli.ed_client.EdClient` implements real GET requests using cmu-cli's existing
 origin-bound, bounded-response HTTPS transport. This is an unofficial integration;
 respect Ed and your institution's access, privacy and usage policies. No posting,
 voting, enrollment, marking-read or other mutation endpoints are implemented.
@@ -12,7 +12,7 @@ CLI syntax and optional configuration: [provider commands](provider-cli.md).
 Create an API token yourself at <https://edstem.org/us/settings/api-tokens> and
 supply it through **CMU_CLI_ED_TOKEN** in the invoking process environment. Do not
 put tokens in config, command arguments, source control or shared transcripts.
-The client sends `Authorization: Bearer <token>`. It does not inspect `.env`, browser
+The client sends a Bearer authorization header. It does not inspect `.env`, browser
 cookies, browser profiles, keychains or other credentials. Missing tokens fail
 with `EdAuthError`. Environment-token support is the implemented auth path; browser
 cookie auth is **not claimed** because an applicable current cookie protocol was
@@ -110,9 +110,9 @@ compatibility is tested with synthetic data, not asserted as a live-account test
 From the repository root:
 
 ```sh
-PYTHONPATH=src /tmp/cmu-cli-cli-fresh/bin/python -m pytest -q tests/test_ed_client.py
-/tmp/cmu-cli-cli-fresh/bin/python -m ruff check --isolated src/cmu_cli/ed_client.py tests/test_ed_client.py
-/tmp/cmu-cli-cli-fresh/bin/python -m ruff format --check src/cmu_cli/ed_client.py tests/test_ed_client.py
+PYTHONPATH=src python -m pytest -q tests/test_ed_client.py
+python -m ruff check --isolated src/cmu_cli/ed_client.py tests/test_ed_client.py
+python -m ruff format --check src/cmu_cli/ed_client.py tests/test_ed_client.py
 ```
 
 Result: **37 passed**, lint passed, both files formatted. Fixtures use real Requests

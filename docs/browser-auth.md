@@ -1,11 +1,13 @@
 # Local browser-session setup
 
-Install the optional loader (Edge first, Chrome also supported):
+In the virtual environment from the [install guide](../README.md#install-and-try-it),
+install the optional loader from public GitHub (Edge and Chrome supported):
 
 ```sh
-python -m pip install 'cmu-cli[browser]'
-cmu-cli config init --output cmu-cli.json
+python -m pip install 'cmu-cli[browser] @ https://github.com/leejamesss/cmu-cli/archive/refs/heads/main.zip'
 ```
+
+If you have not created a config yet, run `cmu-cli config init --output cmu-cli.json`.
 
 Log in normally in your chosen browser, including any MFA. Open `edge://version`
 (or `chrome://version`) and inspect **Profile Path** yourself. Select that profile's

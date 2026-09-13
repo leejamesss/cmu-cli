@@ -1,19 +1,27 @@
-# Documentation
+# CMU CLI documentation
 
-- **Try it without an account:** [synthetic workflow](walkthrough.md), including actual generated output.
-- **Configure your courses:** [configuration](configuration.md) and the [example config](../examples/config.example.json).
-- **Set up live access:** [authorization](auth.md), including explicit local browser-session configuration.
-- **Consume JSON:** [envelope and payload reference](json-contract.md), [JSON Schema](result.schema.json).
-- **Extend or debug:** [architecture](architecture.md), [contributor workflow](../CONTRIBUTING.md).
-- **Understand boundaries:** [security](../SECURITY.md), [provenance](../PROVENANCE.md), [license](../LICENSE).
-- **Command overview and install:** [README](../README.md).
+## Start using it
 
-## Output
+- [Install and try the offline demo](../README.md#install-and-try-it)
+- [See the walkthrough and generated output](walkthrough.md)
+- [Connect Canvas, Piazza, Gradescope, Ed or SIO](provider-cli.md)
+- [Configure courses and local storage](configuration.md)
+- [Use an explicit Edge/Chrome session](browser-auth.md)
+- [Understand token and institutional authorization](auth.md)
+- [Upgrade from cmucw](migration.md)
 
-Interactive output is rendered as tables, with the tri-state submission label coloured
-so it reads at a glance. Everything else is unchanged.
+## Build your own workflow
 
-The split is on whether stdout is a terminal. Piped, redirected, under a test runner,
-with `NO_COLOR`, or with `TERM=dumb`, each command prints exactly the lines it printed
-before — Rich is never constructed, so it cannot re-wrap or re-colour them. `--json`
-returns before any of this. `CLICOLOR_FORCE=1` forces the interactive rendering.
+- [JSON envelope, payloads and exit codes](json-contract.md) · [JSON Schema](result.schema.json)
+- [Ed commands, authentication and search scope](ed.md)
+- [SIO schedule, history and rendered-HTML fallback](sio.md)
+- [Architecture and Python modules](architecture.md)
+- [Contribute a fix and run the release checks](../CONTRIBUTING.md)
+- [Security and private exports](../SECURITY.md) · [Provenance](../PROVENANCE.md) · [MIT license](../LICENSE)
+
+## Terminal output
+
+Interactive output uses tables and colored submission states. When piped or
+redirected, under a test runner, with `NO_COLOR`, or with `TERM=dumb`, commands use
+plain text instead. `--json` selects structured output independently of terminal
+rendering. `CLICOLOR_FORCE=1` forces interactive rendering.

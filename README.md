@@ -15,213 +15,138 @@
   <img alt="Status" src="https://img.shields.io/badge/status-developer%20preview-orange">
 </p>
 
-Check Canvas for a deadline. Open Piazza or Ed for a clarification. Visit Gradescope for
-an assignment, then SIO for your schedule. Download the handout. Find it again next week.
-Keeping up with coursework should not start with another round of tabs.
+A deadline in Canvas. A clarification on Piazza or Ed. A submission in Gradescope.
+Your schedule in SIO. **Stop reopening every tab just to figure out what needs doing.**
 
-**CMU CLI** (`cmu-cli`) is a command-line toolkit for CMU coursework across **Canvas,
-Piazza, Gradescope, Ed Discussion, and SIO**. Query supported course data from one CLI,
-use structured JSON in your own scripts, and keep Canvas materials organized locally.
+**CMU CLI** brings coursework reads into your terminal: check assignments, read
+course discussions, and keep Canvas materials organized locally. Use readable
+terminal output day to day, or `--json` to build your own workflow.
 
-![Canvas, Piazza, Gradescope, Ed Discussion and SIO feed cmu-cli read commands, with terminal output, versioned JSON and local materials through Canvas sync. Provider-specific authorization applies; Ed live accounts and SIO authenticated HTTP remain unverified.](docs/assets/coursework-workflow.svg)
+![Canvas, Piazza, Gradescope, Ed Discussion and SIO connect to cmu-cli, with terminal output, versioned JSON and local Canvas materials.](docs/assets/coursework-workflow.svg)
 
-- **Check the work, not every tab.** Assignment deadlines and submission states from
-  Canvas and configured Gradescope courses; Canvas announcements, Piazza feeds and Ed
-  threads through provider-specific commands.
-- **Keep useful materials close.** Sync Canvas metadata, Markdown indexes and supported
-  downloads into course/term folders, reusing unchanged files on repeat syncs.
-- **Make the output work for you.** Terminal output, or versioned `--json` results
-  carrying source status, warnings and explicit partial-result exit codes.
-- **Inspect your semester.** SIO parsers cover the selected semester schedule and
-  waitlist history — not current queue positions or registration actions.
+## Install and try it
 
-One command-line interface, **not one shared login or universal search**. Integrations
-have different access requirements and coverage; see [what works where](#what-works-where)
-and [usage notes](#usage-notes).
-
-## Install
-
-Python 3.10+. Installs from the public repository over HTTPS; no GitHub account needed,
-though Git must be present. There is no PyPI release.
+**Python 3.10+ · macOS or Linux.** Install directly from public GitHub over HTTPS—no
+GitHub account, Git installation, or PyPI release needed. Use a virtual environment
+to keep your system Python untouched:
 
 ```sh
-python -m pip install "git+https://github.com/leejamesss/cmu-cli.git@main"
-cmu-cli demo --json
+python3 -m venv ~/.venvs/cmu-cli
+. ~/.venvs/cmu-cli/bin/activate
+python -m pip install "https://github.com/leejamesss/cmu-cli/archive/refs/heads/main.zip"
+cmu-cli demo
 ```
 
-For a reproducible install, replace `main` with a reviewed full commit SHA. From a
-source checkout instead:
+**No account or credentials needed for the demo.** It runs offline with synthetic
+assignments, creates readable indexes, and shows a material being downloaded then
+reused on the next sync. Temporary files are cleaned up automatically.
+[See the walkthrough and generated output →](docs/walkthrough.md)
+
+Run `cmu-cli demo --json` to inspect the structured result. In a new terminal,
+activate the same environment with `. ~/.venvs/cmu-cli/bin/activate`.
+For a pinned install, replace `refs/heads/main.zip` with `<full-commit-SHA>.zip`.
+
+## Put it to work
+
+Create a configuration, then replace the example Canvas origin, course IDs and
+storage directory with your own using the [setup guide](docs/provider-cli.md):
 
 ```sh
-python -m venv .venv && . .venv/bin/activate
-python -m pip install .
-cmu-cli --version
+cmu-cli config init --output cmu-cli.json
+cmu-cli --config cmu-cli.json config validate
+cmu-cli --config cmu-cli.json doctor
 ```
 
-## Upgrading from cmucw
+These checks run offline. Connect your account through an
+[explicit browser session](docs/browser-auth.md) or an
+[externally provisioned Canvas token](docs/auth.md). Keep credentials out of config.
 
-The distribution and primary command are now `cmu-cli`; Python APIs live only in
-`cmu_cli`. The `cmucw` command and `python -m cmucw` remain thin launch aliases.
-See [migration and precedence](docs/migration.md) before replacing an old install.
-
-## Quick start
-
-Everything here runs offline, with no credentials and no network:
+With access configured, replace `DEMO-101` below with your configured course code:
 
 ```sh
-cmu-cli demo                                    # synthetic end-to-end run
-cmu-cli config init --output cmu-cli.json       # write a config template
-cmu-cli --config cmu-cli.json config validate   # check it, offline
-cmu-cli --config cmu-cli.json doctor            # diagnostics; does not authenticate
-```
+# What's due, and what have I submitted?
+cmu-cli --config cmu-cli.json assignments --course DEMO-101
 
-The demo syncs three synthetic assignments and an announcement, generates readable
-indexes, and downloads a sample material twice using the real storage implementation. It
-shows submitted / not-submitted / unknown states and proves the second sync needs no
-fetch. Temporary files are removed, and the JSON includes their paths and index contents.
-See the [walkthrough and executed output](docs/walkthrough.md).
+# What did the instructor announce?
+cmu-cli --config cmu-cli.json announcements --course DEMO-101
 
-`config init` refuses to overwrite an existing file, and the template ships inside the
-wheel, so no checkout is required. `doctor` validates configuration offline; it does not
-test authentication or permission.
+# Keep Canvas materials and readable indexes in my course folder
+cmu-cli --config cmu-cli.json sync --course DEMO-101
 
-## Using it with your own courses
+# Read the configured Piazza class feed
+cmu-cli --config cmu-cli.json posts --course DEMO-101
 
-Edit the template: the HTTPS Canvas origin, course IDs, storage directory and term. A
-course URL such as `https://canvas.example.invalid/courses/123` identifies course ID
-`123` — use your actual authorized course URL, not the placeholder.
-
-**Credentials do not belong in the config.** Supply the token through your organization's
-approved secret-injection workflow:
-
-```sh
-export CMU_CLI_CANVAS_TOKEN=...
-cmu-cli --config cmu-cli.json courses --json
+# Use coursework data in a script
 cmu-cli --config cmu-cli.json assignments --course DEMO-101 --json
-cmu-cli --config cmu-cli.json sync --course DEMO-101 --metadata-only --json
 ```
 
-Alternatively, explicitly select your local Edge/Chrome profile cookie database in
-`browser_auth` — see [setup](docs/auth.md). No built-in OAuth login or refresh is
-implemented.
+`sync` writes to your configured local folder; add `--metadata-only` to skip material
+downloads while keeping metadata and indexes. Store exports privately.
 
-`sync` without `--metadata-only` downloads files into configured local storage; that
-metadata can contain private submission information and signed URLs. Other query commands
-do not write course files. `open canvas --course CODE` opens a configured URL in your
-default browser without touching authentication.
+## What you can do
 
-### Discussion and schedule commands
-
-After [provider setup](docs/provider-cli.md), with explicit course IDs and browser
-authorization where required:
-
-```sh
-# Piazza: the exact class network configured for this course
-cmu-cli --config cmu-cli.json posts --course DEMO-101 --json
-
-# Ed: CMU_CLI_ED_TOKEN in the environment; no Canvas config required
-cmu-cli ed courses --json
-cmu-cli ed threads --course-id 12 --json
-cmu-cli ed search --course-id 12 --query deadline --json
-
-# SIO: explicitly authorized browser session; selected-semester views only
-cmu-cli --config cmu-cli.json sio schedule --json
-cmu-cli --config cmu-cli.json sio waitlist-history --json
-```
-
-`DEMO-101` and Ed ID `12` are placeholders, not live course data. Ed search matches only
-fetched listing text, not replies or unfetched thread detail. SIO may require
-caller-supplied rendered HTML through its Python parsers; it does not capture the browser
-page for you; see the [SIO setup guide](docs/sio.md) for details.
-
-## What works where
-
-| Commands / API | Purpose | Access and side effects |
+| Platform | Useful commands | Setup |
 |---|---|---|
-| `demo` | Synthetic end-to-end sync and readable exports | Offline; temporary files only |
-| `config init`, `config validate`, `doctor` | Bootstrap and check configuration | Offline; init creates a file |
-| `auth check-registration` | Validate non-secret registration metadata, not provider approval or login | Offline; exit 3 even when metadata is valid; see [authorization](docs/auth.md) |
-| `courses`, `status`, `platforms` | Course availability and links | Authorized Canvas; no course-file writes |
-| `assignments`, `quizzes`, `announcements` | Read coursework metadata | Authorized Canvas; optional sources may report unavailable |
-| `materials` | List remote materials and local lecture/recitation files | Canvas plus configured public heuristics |
-| `sync` | Private metadata, Markdown indexes and material downloads | Authorized Canvas; local writes; `--metadata-only` skips downloads |
-| `open` | Open a configured platform URL | Default browser only; no authenticated API read |
-| `posts` | Live configured Piazza class feed | Explicit browser opt-in; failures are partial, exit 3 |
-| `ed courses`, `ed threads`, `ed thread`, `ed replies`, `ed search` | Ed membership, listings, detail/replies and local listing search | Explicit environment API token; no Canvas config required; [commands](docs/provider-cli.md) |
-| `sio schedule`, `sio waitlist-history`, `sio probe` | Selected semester schedule, historical waitlist entries, or readiness | Explicit browser auth for schedule/history; may need rendered HTML; no enrollment/current queue query; [limits](docs/sio.md) |
-| Offline provider parsers (Python) | Parse already-authorized synthetic/local input | No CLI import command; see [architecture](docs/architecture.md) |
+| **Canvas** | `courses`, `assignments`, `quizzes`, `announcements`, `materials`, `sync` | [Canvas setup](docs/provider-cli.md#canvas) |
+| **Gradescope** | Assignment and submission states through `assignments` | [Course URL + browser session](docs/provider-cli.md#piazza-and-gradescope) |
+| **Piazza** | Class feed through `posts` | [Class URL + browser session](docs/provider-cli.md#piazza-and-gradescope) |
+| **Ed Discussion** | `ed courses`, `ed threads`, `ed thread`, `ed replies`, `ed search` | [API token](docs/ed.md#authentication-and-origins) |
+| **SIO** | `sio schedule`, `sio waitlist-history` | [Browser setup and rendered-HTML fallback](docs/sio.md) |
 
-## Machine interface
-
-All `--json` output uses a [versioned envelope](docs/json-contract.md); consumers must
-inspect `status` **and** the process exit code.
-
-| Exit | Meaning |
-|---|---|
-| `0` | Completed the requested scope |
-| `2` | Configuration or operation failure |
-| `3` | Partial, unavailable or truncated results |
-
-Argument-parser errors use exit 2 and stderr, not an envelope. Default list output is not
-CLI-truncated; an explicit `--limit N` reports truncation. Human output is English-first;
-existing storage folder names remain compatible.
-
-## Security
-
-Authenticated traffic never leaves its origin: redirects are validated hop by hop, and a
-download that redirects to pre-signed storage is fetched *without* your credentials.
-Tokens come from the environment, never from config files, and never appear in output or
-diagnostics.
-
-Browser-session reading is opt-in, requires an absolute path to a profile you name
-yourself, and is limited to hosts you list. See [`docs/auth.md`](docs/auth.md) and
-[`SECURITY.md`](SECURITY.md) — and note that the MIT license grants no access to any
-service, nor rights to course or student data.
-
-## Usage notes
-
-Configure each platform with your own account using the [provider setup guide](docs/provider-cli.md).
-For platform-specific setup, known limitations, and testing details, see the
-[SIO guide](docs/sio.md) and [Ed guide](docs/ed.md).
-
-**Read coursework; do not change it.** No assignment submission, grade changes,
-discussion posting, enrollment or waitlist actions are provided. `sync` writes to your
-local workspace; `config init` creates a local file. No telemetry, model calls, cloud
-synchronization, scheduler or calendar integration is included.
-
-## Documentation
-
-| If you want to… | Read |
-|---|---|
-| Understand the module layout | [docs/architecture.md](docs/architecture.md) |
-| Set up authorization properly | [docs/auth.md](docs/auth.md) |
-| Use an existing browser session | [docs/browser-auth.md](docs/browser-auth.md) |
-| Write a config file | [docs/configuration.md](docs/configuration.md) |
-| Consume the JSON output | [docs/json-contract.md](docs/json-contract.md) |
-| See a real run, start to finish | [docs/walkthrough.md](docs/walkthrough.md) |
-| Use Ed or SIO | [docs/ed.md](docs/ed.md), [docs/sio.md](docs/sio.md) |
-
-## Development
+For example, after setting `CMU_CLI_ED_TOKEN` through your secret-management workflow:
 
 ```sh
-python -m pip install -e ".[dev]"
-python -m ruff check . && python -m ruff format --check .
-python -m pytest -q
-python scripts/release_check.py
+cmu-cli ed courses --json
+# Replace 12 with an Ed course ID from the result
+cmu-cli ed search --course-id 12 --query deadline --json
 ```
 
-Supported systems are macOS and Linux with POSIX no-follow filesystem operations;
-Windows storage writes fail closed and Windows is not supported. CI tests Linux and
-macOS with Python 3.10 and 3.13. Tests are offline: synthetic fixtures, never real coursework.
+Each platform uses its own authorization. Ed search covers fetched listing text,
+not replies; SIO reads the selected semester and historical waitlist entries, not
+current queue positions. For live-access requirements and tested scope, see the
+[Ed](docs/ed.md) and [SIO](docs/sio.md) guides.
 
-## Community
+## Built for your terminal—and your scripts
 
-Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for what a
-good reproduction looks like, and [PROVENANCE.md](PROVENANCE.md) for what this repository
-does and does not claim about the origin of its code.
+- **Readable at a glance.** Interactive tables distinguish submitted, not submitted
+  and unknown states; plain text stays friendly to pipes and `NO_COLOR`.
+- **Materials that stay organized.** Canvas sync builds course/term folders and
+  Markdown indexes, reusing unchanged downloads.
+- **Structured results.** Versioned JSON includes source status and warnings.
+  Check both `status` and exit code: **0** completed, **2** failed, **3** partial or
+  unavailable. [JSON contract →](docs/json-contract.md)
+- **Read coursework without changing it.** No submissions, discussion posts, grade
+  changes or enrollment actions. Browser access is opt-in; credentials stay bound
+  to their origin. [Security and private exports →](SECURITY.md)
+
+## Help shape the next useful command
+
+**Hit a broken workflow?** [Open a bug report](https://github.com/leejamesss/cmu-cli/issues/new?template=bug_report.md)
+with the command, expected result and sanitized error code—never tokens or private
+coursework. **Missing something you use every week?**
+[Suggest the workflow](https://github.com/leejamesss/cmu-cli/issues/new?template=feature_request.md),
+including the platform and the steps you want to replace.
+
+Contributions with immediate value: synthetic fixtures for provider layout changes,
+Canvas download edge cases, clearer first-run setup, and terminal output improvements.
+[Pick a starting point and run the checks →](CONTRIBUTING.md)
+
+Special thanks to **[@HorizonWind2004](https://github.com/HorizonWind2004)** for
+Canvas download fixes, SIO fixtures, Rich terminal output, and the CLI naming,
+README and red project mark.
+
+## Go deeper
+
+[Documentation](docs/README.md) · [Configuration](docs/configuration.md) ·
+[Provider commands](docs/provider-cli.md) · [Architecture](docs/architecture.md) ·
+[Contributing](CONTRIBUTING.md) · [MIT license](LICENSE)
+
+**Upgrading from `cmucw`?** The primary command and distribution are `cmu-cli`;
+Python APIs live in `cmu_cli`. `cmucw` and `python -m cmucw` remain launch aliases.
+[Migration guide →](docs/migration.md)
 
 ---
 
 <sub>An independent, unofficial tool. Not affiliated with, endorsed by, or sponsored by
-Carnegie Mellon University. The mark above is this project's own; no university logo,
-seal, wordmark or mascot is used.</sub>
+Carnegie Mellon University. The red mark is this project's own. See
+<a href="PROVENANCE.md">code provenance</a>.</sub>
