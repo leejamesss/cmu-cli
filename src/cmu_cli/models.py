@@ -1,4 +1,4 @@
-"""Shared models and configuration for cmucw."""
+"""Shared models and configuration for cmu-cli."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
-CONFIG_PATH = Path.home() / ".config/cmucw/config.json"
+CONFIG_PATH = Path.home() / ".config/cmu_cli/config.json"
 
 
 class InvalidTypeError(TypeError, ValueError):
@@ -49,7 +49,7 @@ class ProviderConfig:
 
 def load_provider_config(path: Path | None = None) -> ProviderConfig:
     """Optional provider-only config; never require Canvas or discover cookies."""
-    selected = path or os.environ.get("CMUCW_CONFIG")
+    selected = path or os.environ.get("CMU_CLI_CONFIG")
     candidate = Path(selected).expanduser() if selected else CONFIG_PATH
     if not selected and not candidate.exists():
         return ProviderConfig()
@@ -94,7 +94,7 @@ class Config:
 
 
 def load_config(path: Path | None = None) -> Config:
-    path = Path(path or os.environ.get("CMUCW_CONFIG", CONFIG_PATH)).expanduser()
+    path = Path(path or os.environ.get("CMU_CLI_CONFIG", CONFIG_PATH)).expanduser()
     raw = json.loads(path.read_text(encoding="utf-8"))
     base = raw["canvas_base_url"].rstrip("/")
     parsed = urlparse(base)

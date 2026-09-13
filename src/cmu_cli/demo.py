@@ -9,7 +9,7 @@ from .submissions import submission_state
 
 
 def run_demo():
-    with TemporaryDirectory(prefix="cmucw-demo-") as tmp:
+    with TemporaryDirectory(prefix="cmu-cli-demo-") as tmp:
         course = Course("DEMO-101", 1, "Synthetic Example", "demo")
         config = Config("https://canvas.example.invalid", Path(tmp), (course,))
         assignments = [

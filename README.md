@@ -6,9 +6,9 @@
 
 Check Canvas for a deadline. Open Piazza or Ed for a clarification. Visit Gradescope for an assignment, then SIO for your schedule. Download the handout. Find it again next week. Keeping up with coursework should not start with another round of tabs.
 
-**CMU CLI** (`cmu-cli` on GitHub; `cmucw` in your terminal) is a command-line toolkit for CMU coursework across **Canvas, Piazza, Gradescope, Ed Discussion, and SIO**. Query supported course data from one CLI, use structured JSON in your own scripts, and keep Canvas materials organized locally.
+**CMU CLI** (`cmu-cli`) is a command-line toolkit for CMU coursework across **Canvas, Piazza, Gradescope, Ed Discussion, and SIO**. Query supported course data from one CLI, use structured JSON in your own scripts, and keep Canvas materials organized locally.
 
-![Canvas, Piazza, Gradescope, Ed Discussion and SIO feed cmucw read commands, with terminal output, versioned JSON and local materials through Canvas sync. Provider-specific authorization applies; Ed live accounts and SIO authenticated HTTP remain unverified.](docs/assets/coursework-workflow.svg)
+![Canvas, Piazza, Gradescope, Ed Discussion and SIO feed cmu-cli read commands, with terminal output, versioned JSON and local materials through Canvas sync. Provider-specific authorization applies; Ed live accounts and SIO authenticated HTTP remain unverified.](docs/assets/coursework-workflow.svg)
 
 - **Check the work, not every tab.** Read assignment deadlines and submission states from Canvas and configured Gradescope courses; read Canvas announcements, Piazza feeds, and Ed threads with provider-specific commands.
 - **Keep useful materials close.** Sync Canvas metadata, Markdown indexes, and supported downloads into course/term folders, reusing unchanged files on repeat syncs.
@@ -24,7 +24,7 @@ required. No PyPI release is available. Git must be installed:
 
 ```sh
 python -m pip install "git+https://github.com/leejamesss/cmu-cli.git@main"
-cmucw demo --json
+cmu-cli demo --json
 ```
 
 For a reproducible install, replace `main` with a reviewed full commit SHA.
@@ -35,28 +35,28 @@ python -m venv .venv
 # macOS/Linux
 . .venv/bin/activate
 python -m pip install .
-cmucw --version
-cmucw demo
-cmucw demo --json
-cmucw config init --output cmucw.json
-cmucw --config cmucw.json config validate --json
-cmucw --config cmucw.json doctor --json
+cmu-cli --version
+cmu-cli demo
+cmu-cli demo --json
+cmu-cli config init --output cmu-cli.json
+cmu-cli --config cmu-cli.json config validate --json
+cmu-cli --config cmu-cli.json doctor --json
 ```
 
 The demo syncs three synthetic assignments and an announcement, generates readable indexes, and downloads a sample material twice using the real storage implementation. It shows submitted/not-submitted/unknown states and proves the second sync needs no fetch. Temporary files are removed; JSON includes their paths and index contents. No credentials or network are needed. See the [walkthrough and executed output](docs/walkthrough.md). The config template is bundled in the wheel: no checkout is required for `config init`. Init refuses to overwrite an existing file. Doctor validates config offline; it does not test authentication or permission.
 
 ## Authorized Canvas workflow
 
-Canvas prefers `CMUCW_CANVAS_TOKEN`. Alternatively explicitly select your local Edge/Chrome profile cookie database in `browser_auth`; see [setup](docs/auth.md). No built-in OAuth login or refresh is implemented.
+Canvas prefers `CMU_CLI_CANVAS_TOKEN`. Alternatively explicitly select your local Edge/Chrome profile cookie database in `browser_auth`; see [setup](docs/auth.md). No built-in OAuth login or refresh is implemented.
 
 Edit the template: set the HTTPS Canvas origin, course IDs, storage directory and term. A Canvas course URL such as `https://canvas.example.invalid/courses/123` identifies course ID `123`; use the actual authorized course URL, not this placeholder. Credentials do not belong in config. Supply the OAuth token through your organization's approved secret-injection workflow, then:
 
 ```sh
-cmucw --config cmucw.json courses --json
-cmucw --config cmucw.json assignments --course DEMO-101 --json
-cmucw --config cmucw.json quizzes --json
-cmucw --config cmucw.json materials --json
-cmucw --config cmucw.json sync --course DEMO-101 --metadata-only --json
+cmu-cli --config cmu-cli.json courses --json
+cmu-cli --config cmu-cli.json assignments --course DEMO-101 --json
+cmu-cli --config cmu-cli.json quizzes --json
+cmu-cli --config cmu-cli.json materials --json
+cmu-cli --config cmu-cli.json sync --course DEMO-101 --metadata-only --json
 ```
 
 Replace `DEMO-101` with your configured code. `sync` without `--metadata-only` downloads files into configured local storage; metadata can contain private submission information and signed URLs. Other query commands do not write course files. `open canvas --course CODE` opens a configured URL in the default browser without accessing authentication. Piazza posts and Gradescope assignments support live read-only browser sessions after explicit local configuration. Pure parsers remain available as Python APIs.
@@ -69,16 +69,16 @@ After [provider setup](docs/provider-cli.md), use explicit course IDs and select
 
 ```sh
 # Piazza: the exact class network configured for this course
-cmucw --config cmucw.json posts --course DEMO-101 --json
+cmu-cli --config cmu-cli.json posts --course DEMO-101 --json
 
-# Ed: CMUCW_ED_TOKEN in the environment; no Canvas config required
-cmucw ed courses --json
-cmucw ed threads --course-id 12 --json
-cmucw ed search --course-id 12 --query deadline --json
+# Ed: CMU_CLI_ED_TOKEN in the environment; no Canvas config required
+cmu-cli ed courses --json
+cmu-cli ed threads --course-id 12 --json
+cmu-cli ed search --course-id 12 --query deadline --json
 
 # SIO: explicitly authorized browser session; selected-semester views only
-cmucw --config cmucw.json sio schedule --json
-cmucw --config cmucw.json sio waitlist-history --json
+cmu-cli --config cmu-cli.json sio schedule --json
+cmu-cli --config cmu-cli.json sio waitlist-history --json
 ```
 
 `DEMO-101` and Ed ID `12` are placeholders, not live course data. Ed search matches only fetched listing text, not replies or unfetched thread detail. SIO may require caller-supplied rendered HTML through its Python parsers; it does not capture the browser page for you. These command forms are covered by offline CLI tests, **not a claim of successful live account access**.

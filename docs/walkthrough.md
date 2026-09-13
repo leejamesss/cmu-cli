@@ -3,8 +3,8 @@
 Run these after the [source installation](../README.md):
 
 ```sh
-cmucw demo
-cmucw demo --json
+cmu-cli demo
+cmu-cli demo --json
 ```
 
 1. Three synthetic assignments represent submitted, not submitted and unknown states.
@@ -41,12 +41,12 @@ The following `data` fields were captured from the demo, not a live course. Enve
     }
   ],
   "exports": [
-    ".cmucw/announcements.json",
-    ".cmucw/assignments.json",
-    ".cmucw/download_manifest.json",
-    ".cmucw/files.json",
-    ".cmucw/last_sync.json",
-    ".cmucw/modules.json",
+    ".cmu-cli/announcements.json",
+    ".cmu-cli/assignments.json",
+    ".cmu-cli/download_manifest.json",
+    ".cmu-cli/files.json",
+    ".cmu-cli/last_sync.json",
+    ".cmu-cli/modules.json",
     "00_课程信息/Canvas通知索引.md",
     "02_作业/Assignment_01/hw1.txt",
     "02_作业/Canvas作业索引.md"
@@ -59,7 +59,7 @@ The generated assignment index (legacy Chinese labels remain compatible):
 ```text
 # DEMO-101 Canvas 作业索引
 
-由 `cmucw sync` 生成。截止时间时区：America/New_York。
+由 `cmu-cli sync` 生成。截止时间时区：America/New_York。
 
 ## Read the syllabus
 - 截止：未设置

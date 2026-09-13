@@ -4,7 +4,7 @@ See [local browser-session setup](browser-auth.md) for the shortest Edge/Chrome 
 
 ## Current boundary
 
-Canvas accepts an externally obtained `CMUCW_CANVAS_TOKEN` (preferred) or an explicitly selected local browser session. No OAuth login, refresh or revocation is implemented. `auth check-registration` is an optional offline OAuth metadata validator, not a prerequisite for local browser authentication.
+Canvas accepts an externally obtained `CMU_CLI_CANVAS_TOKEN` (preferred) or an explicitly selected local browser session. No OAuth login, refresh or revocation is implemented. `auth check-registration` is an optional offline OAuth metadata validator, not a prerequisite for local browser authentication.
 
 Canvas distinguishes personal testing from applications used by other users: do not instruct third-party users to manually generate personal tokens. Applications used by multiple users must obtain tokens through OAuth. Provider approval for agent/MCP use must not be inferred from JSON output or read-only intent. This package has no MCP server or automatic model data transfer.
 
@@ -48,7 +48,7 @@ Create a separate non-secret JSON file; do not export the raw DeveloperKey API o
 ```
 
 ```bash
-cmucw auth check-registration --registration registration.json --json
+cmu-cli auth check-registration --registration registration.json --json
 ```
 
 No normal coursework configuration is needed. Only the explicitly supplied file is read, bounded to 16 KiB; no token environment variable, browser, credential store, Keychain or network is used. Duplicate/unknown fields (including secrets), malformed IDs/origins, non-GET/duplicate scopes, symlinks and non-regular files are rejected. Values are not echoed. Keep all secrets out of this metadata file.

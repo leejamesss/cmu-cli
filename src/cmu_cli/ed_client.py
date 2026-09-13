@@ -65,7 +65,7 @@ def _result(items, *, complete, reason, pages=0, scope="course thread listings")
 
 
 class EdClient:
-    """GET-only client using an explicit CMUCW_ED_TOKEN environment credential.
+    """GET-only client using an explicit CMU_CLI_ED_TOKEN environment credential.
 
     A supplied Session is an injection boundary for tests/explicit caller-managed
     authentication. No browser databases, .env files or keychains are inspected.
@@ -99,9 +99,9 @@ class EdClient:
             raise EdError("Only supported Ed read endpoints are allowed")
         try:
             if self.session is None:
-                token = os.environ.get("CMUCW_ED_TOKEN")
+                token = os.environ.get("CMU_CLI_ED_TOKEN")
                 if not token or any(ord(c) <= 32 or ord(c) >= 127 for c in token):
-                    raise EdAuthError("Set CMUCW_ED_TOKEN to an Ed API token")
+                    raise EdAuthError("Set CMU_CLI_ED_TOKEN to an Ed API token")
                 self.session = configured_session()
                 self.session.headers["Authorization"] = f"Bearer {token}"
             response = safe_request(

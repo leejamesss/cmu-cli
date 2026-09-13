@@ -59,7 +59,7 @@ def https_origin(url: str) -> tuple[str, str, int]:
 def configured_session() -> requests.Session:
     session = requests.Session()
     session.trust_env = False
-    session.headers.update({"User-Agent": "cmucw/0.1"})
+    session.headers.update({"User-Agent": "cmu_cli/0.1"})
     retry = Retry(
         total=3,
         backoff_factor=1,
@@ -74,7 +74,7 @@ def canvas_api_session(
     base_url: str, browser_auth=None
 ) -> tuple[requests.Session, str]:
     https_origin(base_url)
-    token = os.environ.get("CMUCW_CANVAS_TOKEN")
+    token = os.environ.get("CMU_CLI_CANVAS_TOKEN")
     if not token:
         return browser_cookie_session(
             https_origin(base_url)[1], browser_auth

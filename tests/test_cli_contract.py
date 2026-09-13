@@ -5,8 +5,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from cmucw import cli
-from cmucw.models import Config, Course, load_config
+from cmu_cli import cli
+from cmu_cli.models import Config, Course, load_config
 
 
 @pytest.fixture(autouse=True)
@@ -72,7 +72,7 @@ def test_limit_is_explicit():
 
 
 def test_error_envelope(monkeypatch, capsys):
-    monkeypatch.setattr(sys, "argv", ["cmucw", "courses", "--json"])
+    monkeypatch.setattr(sys, "argv", ["cmu-cli", "courses", "--json"])
     monkeypatch.setattr(
         cli, "load_config", Mock(side_effect=FileNotFoundError("secret"))
     )
@@ -88,7 +88,7 @@ def test_error_envelope(monkeypatch, capsys):
 def test_init_and_validate_offline(tmp_path, monkeypatch, capsys):
     path = tmp_path / "config.json"
     monkeypatch.setattr(
-        sys, "argv", ["cmucw", "config", "init", "--output", str(path), "--json"]
+        sys, "argv", ["cmu-cli", "config", "init", "--output", str(path), "--json"]
     )
     cli.main()
     assert json.loads(capsys.readouterr().out)["status"] == "ok"
@@ -97,7 +97,7 @@ def test_init_and_validate_offline(tmp_path, monkeypatch, capsys):
         cli, "CanvasClient", Mock(side_effect=AssertionError("must not authenticate"))
     )
     monkeypatch.setattr(
-        sys, "argv", ["cmucw", "--config", str(path), "doctor", "--json"]
+        sys, "argv", ["cmu-cli", "--config", str(path), "doctor", "--json"]
     )
     cli.main()
     assert json.loads(capsys.readouterr().out)["data"]["network_used"] is False

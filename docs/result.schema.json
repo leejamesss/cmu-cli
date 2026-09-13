@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "cmucw result envelope 1.0",
+  "title": "cmu-cli result envelope 1.0",
   "type": "object",
   "required": [
     "schema_version",

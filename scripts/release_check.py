@@ -49,12 +49,12 @@ def main():
     print(f"Local documentation links: {count} passed", flush=True)
     if args.links_only:
         return
-    output = Path(tempfile.mkdtemp(prefix="cmucw-release-")).resolve()
+    output = Path(tempfile.mkdtemp(prefix="cmu-cli-release-")).resolve()
     print(f"Artifacts and logs: {output}", flush=True)
     env = {
         k: v
         for k, v in os.environ.items()
-        if k not in ("PYTHONPATH", "PYTHONHOME") and not k.startswith("CMUCW_")
+        if k not in ("PYTHONPATH", "PYTHONHOME") and not k.startswith("CMU_CLI_")
     }
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     (output / "home").mkdir()
@@ -120,7 +120,7 @@ def main():
         [
             python,
             "-c",
-            'import cmucw; assert "site-packages" in cmucw.__file__; print(cmucw.__file__)',
+            'import cmu_cli; assert "site-packages" in cmu-cli.__file__; print(cmu-cli.__file__)',
         ],
     )
     for label, command in [
@@ -128,23 +128,23 @@ def main():
         ("version", ["--version"]),
         ("demo-human", ["demo"]),
         ("demo", ["demo", "--json"]),
-        ("init", ["config", "init", "--output", "cmucw.json"]),
-        ("validate", ["--config", "cmucw.json", "config", "validate", "--json"]),
-        ("doctor", ["--config", "cmucw.json", "doctor", "--json"]),
+        ("init", ["config", "init", "--output", "cmu-cli.json"]),
+        ("validate", ["--config", "cmu-cli.json", "config", "validate", "--json"]),
+        ("doctor", ["--config", "cmu-cli.json", "doctor", "--json"]),
     ]:
-        run(label, [python, "-m", "cmucw", *command])
+        run(label, [python, "-m", "cmu-cli", *command])
     run(
         "posts-without-opt-in",
-        [python, "-m", "cmucw", "--config", "cmucw.json", "posts", "--json"],
+        [python, "-m", "cmu-cli", "--config", "cmu-cli.json", "posts", "--json"],
         expected=3,
     )
     run(
         "ed-without-token",
-        [python, "-m", "cmucw", "ed", "courses", "--json"],
+        [python, "-m", "cmu-cli", "ed", "courses", "--json"],
         expected=2,
     )
     for provider in ("ed", "sio"):
-        run(provider + "-help", [python, "-m", "cmucw", provider, "--help"])
+        run(provider + "-help", [python, "-m", "cmu-cli", provider, "--help"])
     shutil.copytree(
         source / "tests", output / "tests", ignore=shutil.ignore_patterns("__pycache__")
     )

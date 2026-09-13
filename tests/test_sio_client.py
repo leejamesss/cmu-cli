@@ -8,8 +8,8 @@ from unittest.mock import Mock
 import pytest
 import requests
 
-from cmucw import sio_client as sio
-from cmucw.web_session import configured_session
+from cmu_cli import sio_client as sio
+from cmu_cli.web_session import configured_session
 
 
 def snapshot(text="Plan Course Schedule\nUnits Scheduled :: 18.0", **kwargs):

@@ -24,11 +24,11 @@ The release check copies the source to a temporary directory, checks lint and fo
 
 | Change | Implementation | Start testing here |
 |---|---|---|
-| Submission interpretation | `src/cmucw/submissions.py` (shared by CLI/storage) | `tests/test_adoption.py` |
-| CLI output or payload fields | `src/cmucw/cli.py`, `docs/result.schema.json` | `tests/test_cli_contract.py`, `tests/test_final_integration.py` |
-| Material naming, revisions, indexes | `src/cmucw/storage.py` | `tests/test_canvas_homework.py`, `tests/test_storage_security.py` |
-| Canvas pagination or transport | `src/cmucw/canvas_client.py`, `src/cmucw/web_session.py` | `tests/test_network_security.py` |
-| Offline parsers | `src/cmucw/official_materials.py`, provider modules | Corresponding parser test module |
+| Submission interpretation | `src/cmu_cli/submissions.py` (shared by CLI/storage) | `tests/test_adoption.py` |
+| CLI output or payload fields | `src/cmu_cli/cli.py`, `docs/result.schema.json` | `tests/test_cli_contract.py`, `tests/test_final_integration.py` |
+| Material naming, revisions, indexes | `src/cmu_cli/storage.py` | `tests/test_canvas_homework.py`, `tests/test_storage_security.py` |
+| Canvas pagination or transport | `src/cmu_cli/canvas_client.py`, `src/cmu_cli/web_session.py` | `tests/test_network_security.py` |
+| Offline parsers | `src/cmu_cli/official_materials.py`, provider modules | Corresponding parser test module |
 
 Add a failing synthetic regression first, change the smallest shared layer, then run targeted and full checks. Preserve provider failures as failures, not empty success. For storage changes test collisions, symlinks, metadata writes and preservation of user edits. Update the JSON reference for additive fields; incompatible contracts require a version decision. Keep pure semantics outside the CLI to avoid circular imports.
 

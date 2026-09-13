@@ -6,11 +6,11 @@ from unittest.mock import Mock
 import pytest
 import requests
 
-from cmucw import cli, web_session
-from cmucw.canvas_client import CanvasClient, CanvasError
-from cmucw.demo import run_demo
-from cmucw.models import Config, Course, load_config
-from cmucw.storage import sync_canvas_file
+from cmu_cli import cli, web_session
+from cmu_cli.canvas_client import CanvasClient, CanvasError
+from cmu_cli.demo import run_demo
+from cmu_cli.models import Config, Course, load_config
+from cmu_cli.storage import sync_canvas_file
 
 
 def test_demo_runs_real_storage_without_auth():
@@ -38,7 +38,7 @@ def test_config_paths_and_selection(tmp_path, monkeypatch):
             }
         )
     )
-    monkeypatch.setenv("CMUCW_CONFIG", str(p))
+    monkeypatch.setenv("CMU_CLI_CONFIG", str(p))
     config = load_config()
     assert config.storage_root == tmp_path / "files"
     assert config.find_course("demo101").canvas_id == 1
@@ -55,7 +55,7 @@ def test_config_paths_and_selection(tmp_path, monkeypatch):
 def test_cookies_are_opt_in(monkeypatch):
     with pytest.raises(web_session.SessionError, match="opt-in"):
         web_session.edge_cookie_session("piazza.com")
-    monkeypatch.setenv("CMUCW_ALLOW_BROWSER_COOKIES", "1")
+    monkeypatch.setenv("CMU_CLI_ALLOW_BROWSER_COOKIES", "1")
     with pytest.raises(web_session.SessionError, match="opt-in"):
         web_session.edge_cookie_session("piazza.com")
 
@@ -63,9 +63,9 @@ def test_cookies_are_opt_in(monkeypatch):
 def test_cookie_scope_and_no_value_output(tmp_path, monkeypatch, capsys):
     p = tmp_path / "synthetic.db"
     p.touch()
-    monkeypatch.setenv("CMUCW_ALLOW_BROWSER_COOKIES", "1")
-    monkeypatch.setenv("CMUCW_COOKIE_HOSTS", "piazza.com")
-    monkeypatch.setenv("CMUCW_EDGE_COOKIE_FILE", str(p))
+    monkeypatch.setenv("CMU_CLI_ALLOW_BROWSER_COOKIES", "1")
+    monkeypatch.setenv("CMU_CLI_COOKIE_HOSTS", "piazza.com")
+    monkeypatch.setenv("CMU_CLI_EDGE_COOKIE_FILE", str(p))
     jar = requests.cookies.RequestsCookieJar()
     for domain in [".piazza.com", "notpiazza.com", "other.example.invalid"]:
         jar.set("session_id", "synthetic-marker", domain=domain)
@@ -90,7 +90,7 @@ def test_cookie_scope_and_no_value_output(tmp_path, monkeypatch, capsys):
 
 
 def test_environment_token_never_probes_browser(monkeypatch, capsys):
-    monkeypatch.setenv("CMUCW_CANVAS_TOKEN", "synthetic-marker")
+    monkeypatch.setenv("CMU_CLI_CANVAS_TOKEN", "synthetic-marker")
     session, method = web_session.canvas_api_session("https://canvas.example.invalid")
     assert method == "environment_token"
     assert session.headers["Authorization"].endswith("synthetic-marker")
@@ -128,7 +128,7 @@ def test_public_download_never_uses_token_session(monkeypatch):
     from tests.test_network_security import transport
 
     anonymous, adapter = transport(monkeypatch, [(200, {}, b"synthetic")])
-    monkeypatch.setattr("cmucw.canvas_client.configured_session", lambda: anonymous)
+    monkeypatch.setattr("cmu_cli.canvas_client.configured_session", lambda: anonymous)
     client = CanvasClient("https://canvas.example.invalid", session=authenticated)
     assert client.download_bytes("https://public.example.invalid/file") == b"synthetic"
     authenticated.get.assert_not_called()
@@ -157,7 +157,7 @@ def test_assignments_canvas_only_needs_no_browser():
 
 
 def test_cli_failure_redacts_message(monkeypatch, capsys):
-    monkeypatch.setattr(sys, "argv", ["cmucw", "courses", "--json"])
+    monkeypatch.setattr(sys, "argv", ["cmu-cli", "courses", "--json"])
     monkeypatch.setattr(
         cli, "load_config", lambda _: Config("https://canvas.example.invalid", None, ())
     )
@@ -183,11 +183,12 @@ def test_cli_failure_redacts_message(monkeypatch, capsys):
 
 
 def test_quiz_public_parser_configurable(monkeypatch):
-    from cmucw.official_quizzes import public_quizzes
+    from cmu_cli.official_quizzes import public_quizzes
 
     response = Mock(text="<table><tr><td>Sep 3</td><td>Quiz 1</td></tr></table>")
     monkeypatch.setattr(
-        "cmucw.official_quizzes.public_document", lambda *a, **k: response.text.encode()
+        "cmu_cli.official_quizzes.public_document",
+        lambda *a, **k: response.text.encode(),
     )
     rows = public_quizzes("DEMO-101", "https://courses.example.invalid", 2030, 9)
     assert rows[0]["starts_at"].startswith("2030-09-03T09:00")

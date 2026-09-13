@@ -9,11 +9,11 @@ import pytest
 import requests
 from requests.adapters import BaseAdapter
 
-from cmucw import web_session
-from cmucw.canvas_client import CanvasClient, CanvasEndpointUnavailable, CanvasError
-from cmucw.gradescope_client import GradescopeClient, GradescopeError
-from cmucw.models import Course
-from cmucw.piazza_client import PiazzaClient, PiazzaError
+from cmu_cli import web_session
+from cmu_cli.canvas_client import CanvasClient, CanvasEndpointUnavailable, CanvasError
+from cmu_cli.gradescope_client import GradescopeClient, GradescopeError
+from cmu_cli.models import Course
+from cmu_cli.piazza_client import PiazzaClient, PiazzaError
 
 REAL_REQUEST = requests.Session.request
 BASE = "https://canvas.example.invalid"
@@ -124,7 +124,7 @@ def test_real_empty_collection(monkeypatch):
 )
 def test_anonymous_redirect_validated(monkeypatch, target):
     session, adapter = transport(monkeypatch, [(302, {"Location": target}, b"")])
-    monkeypatch.setattr("cmucw.canvas_client.configured_session", lambda: session)
+    monkeypatch.setattr("cmu_cli.canvas_client.configured_session", lambda: session)
     with pytest.raises(CanvasError):
         CanvasClient(BASE, Mock()).download_bytes("https://public.invalid/file")
     assert len(adapter.seen) == 1
@@ -139,7 +139,7 @@ def test_anonymous_redirect_has_no_implicit_auth(monkeypatch):
         requests.sessions, "get_netrc_auth", lambda *a, **k: pytest.fail("netrc read")
     )
     monkeypatch.setenv("HTTPS_PROXY", "http://proxy.invalid")
-    monkeypatch.setattr("cmucw.canvas_client.configured_session", lambda: session)
+    monkeypatch.setattr("cmu_cli.canvas_client.configured_session", lambda: session)
     assert (
         CanvasClient(BASE, Mock()).download_bytes("https://public.invalid/file")
         == b"synthetic"
@@ -184,8 +184,8 @@ def test_exception_traceback_redacted():
 
 
 def test_legacy_environment_is_not_explicit_config_consent(monkeypatch):
-    monkeypatch.setenv("CMUCW_ALLOW_BROWSER_COOKIES", "1")
-    monkeypatch.setenv("CMUCW_COOKIE_HOSTS", "piazza.com")
+    monkeypatch.setenv("CMU_CLI_ALLOW_BROWSER_COOKIES", "1")
+    monkeypatch.setenv("CMU_CLI_COOKIE_HOSTS", "piazza.com")
     with pytest.raises(web_session.SessionError, match="opt-in"):
         web_session.edge_cookie_session("piazza.com")
     fake = Mock()
@@ -253,8 +253,8 @@ def test_redirect_body_is_never_eagerly_read(monkeypatch):
 
 
 def test_public_adapters_use_isolated_transport(monkeypatch):
-    from cmucw.official_materials import public_materials
-    from cmucw.official_quizzes import public_quizzes
+    from cmu_cli.official_materials import public_materials
+    from cmu_cli.official_quizzes import public_quizzes
 
     html = b'<table><tr><td>Sep 3</td><td>Quiz 1</td><td><a href="slides/03-example.pdf">Slides</a></td></tr></table>'
     session, adapter = transport(
@@ -266,7 +266,9 @@ def test_public_adapters_use_isolated_transport(monkeypatch):
         ],
     )
     monkeypatch.setattr(web_session, "configured_session", lambda: session)
-    monkeypatch.setattr("cmucw.official_materials.configured_session", lambda: session)
+    monkeypatch.setattr(
+        "cmu_cli.official_materials.configured_session", lambda: session
+    )
     monkeypatch.setattr(
         requests.sessions, "get_netrc_auth", lambda *a, **k: pytest.fail("netrc read")
     )

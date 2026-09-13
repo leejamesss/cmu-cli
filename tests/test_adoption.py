@@ -1,9 +1,9 @@
 import pytest
 
-from cmucw import cli
-from cmucw.demo import run_demo
-from cmucw.models import Course
-from cmucw.storage import assignments_markdown
+from cmu_cli import cli
+from cmu_cli.demo import run_demo
+from cmu_cli.models import Course
+from cmu_cli.storage import assignments_markdown
 
 
 @pytest.mark.parametrize(
@@ -33,7 +33,7 @@ def test_demo_workflow_is_reproducible():
     first = run_demo()
     assert first == run_demo()
     assert [a["submitted"] for a in first["assignments"]] == [True, False, None]
-    assert ".cmucw/download_manifest.json" in first["exports"]
+    assert ".cmu-cli/download_manifest.json" in first["exports"]
     assert "Bring your questions" in first["announcement_index"]
     assert "未知" in first["assignment_index"]
 

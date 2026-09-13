@@ -8,13 +8,13 @@ from unittest.mock import Mock
 import jsonschema
 import pytest
 
-from cmucw import cli, ed_client, models, sio_client
+from cmu_cli import cli, ed_client, models, sio_client
 
 
 @pytest.fixture(autouse=True)
 def isolation(monkeypatch, tmp_path):
     monkeypatch.setattr(models, "CONFIG_PATH", tmp_path / "absent.json")
-    monkeypatch.delenv("CMUCW_ED_TOKEN", raising=False)
+    monkeypatch.delenv("CMU_CLI_ED_TOKEN", raising=False)
     monkeypatch.setattr(
         cli, "CanvasClient", Mock(side_effect=AssertionError("Canvas forbidden"))
     )
@@ -24,7 +24,7 @@ def isolation(monkeypatch, tmp_path):
 
 
 def invoke(monkeypatch, capsys, argv, expected):
-    monkeypatch.setattr(sys, "argv", ["cmucw", *argv, "--json"])
+    monkeypatch.setattr(sys, "argv", ["cmu-cli", *argv, "--json"])
     with pytest.raises(SystemExit) as exc:
         cli.main()
     assert exc.value.code == expected

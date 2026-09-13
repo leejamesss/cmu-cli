@@ -1,4 +1,4 @@
-"""Local cache and human-readable exports for cmucw."""
+"""Local cache and human-readable exports for cmu-cli."""
 
 from __future__ import annotations
 
@@ -73,7 +73,7 @@ def safe_read(path: Path) -> bytes:
 def atomic_write(path: Path, content: bytes, *, exclusive: bool = False) -> None:
     """Private, fsynced, random staging; publish without following leaf links."""
     with directory_fd(path.parent, create=True) as parent:
-        temporary = ".cmucw-" + uuid.uuid4().hex + ".tmp"
+        temporary = ".cmu-cli-" + uuid.uuid4().hex + ".tmp"
         descriptor = os.open(
             temporary,
             os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
@@ -167,7 +167,7 @@ def course_root(config: Config, course: Course) -> Path:
 def ensure_layout(config: Config, course: Course) -> Path:
     root = course_root(config, course)
     checked_destination(config.storage_root, root)
-    for relative in ["00_课程信息", "01_讲义", "02_作业", "03_Recitations", ".cmucw"]:
+    for relative in ["00_课程信息", "01_讲义", "02_作业", "03_Recitations", ".cmu-cli"]:
         checked_destination(root, root / relative)
         with directory_fd(root / relative, create=True):
             pass
@@ -282,7 +282,7 @@ def assignments_markdown(course: Course, assignments: list[dict[str, Any]]) -> s
     lines = [
         f"# {course.code} Canvas 作业索引",
         "",
-        f"由 `cmucw sync` 生成。截止时间时区：{LOCAL_TZ}。",
+        f"由 `cmu-cli sync` 生成。截止时间时区：{LOCAL_TZ}。",
         "",
     ]
     if not assignments:
@@ -308,7 +308,7 @@ def assignments_markdown(course: Course, assignments: list[dict[str, Any]]) -> s
 
 
 def announcements_markdown(course: Course, announcements: list[dict[str, Any]]) -> str:
-    lines = [f"# {course.code} Canvas 通知索引", "", "由 `cmucw sync` 生成。", ""]
+    lines = [f"# {course.code} Canvas 通知索引", "", "由 `cmu-cli sync` 生成。", ""]
     if not announcements:
         lines.append("当前 Canvas 没有课程通知。")
     for item in announcements:
@@ -462,7 +462,7 @@ def sync_canvas_file(
             raise ValueError("Manifest paths must be relative")
         destination = root / relative
         checked_destination(root, destination)
-        if relative.parts[0] == ".cmucw" or relative.name in (
+        if relative.parts[0] == ".cmu-cli" or relative.name in (
             "Canvas作业索引.md",
             "Canvas通知索引.md",
         ):
@@ -557,7 +557,7 @@ def sync_canvas_file(
         status = "deduplicated" if not entry else "unchanged"
     else:
         if destination.exists():
-            version_dir = root / ".cmucw" / "versions" / safe_filename(file_id)
+            version_dir = root / ".cmu-cli" / "versions" / safe_filename(file_id)
             checked_destination(root, version_dir)
             stamp = re.sub(
                 r"[^0-9A-Za-z]+", "-", str(source_updated_at or "previous")
@@ -598,7 +598,7 @@ def sync_course(
     fetch_bytes: Callable[[str], bytes],
 ) -> dict[str, Any]:
     root = ensure_layout(config, course)
-    cache = root / ".cmucw"
+    cache = root / ".cmu-cli"
     write_json(cache / "assignments.json", assignments)
     write_json(cache / "files.json", files)
     write_json(cache / "announcements.json", announcements)

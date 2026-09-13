@@ -5,9 +5,9 @@ import sys
 
 import pytest
 
-from cmucw import cli
-from cmucw.models import InvalidTypeError, load_config
-from cmucw.storage import load_json_object
+from cmu_cli import cli
+from cmu_cli.models import InvalidTypeError, load_config
+from cmu_cli.storage import load_json_object
 
 
 @pytest.mark.parametrize("error_type", [RuntimeError, ValueError, AssertionError])
@@ -16,7 +16,7 @@ def test_unexpected_cli_failure_is_sanitized(monkeypatch, capsys, error_type):
         raise error_type("SYNTHETIC_SECRET_DO_NOT_PRINT")
 
     monkeypatch.setattr(cli, "load_config", fail)
-    monkeypatch.setattr(sys, "argv", ["cmucw", "doctor", "--json"])
+    monkeypatch.setattr(sys, "argv", ["cmu-cli", "doctor", "--json"])
     with pytest.raises(SystemExit) as result:
         cli.main()
     captured = capsys.readouterr()

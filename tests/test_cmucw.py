@@ -1,5 +1,5 @@
-from cmucw.models import Config, Course
-from cmucw.storage import (
+from cmu_cli.models import Config, Course
+from cmu_cli.storage import (
     canvas_material_folder,
     clean_html,
     ensure_layout,
@@ -82,6 +82,6 @@ def test_canvas_download_deduplicates_and_tracks_canonical_path(tmp_path):
     result = sync_canvas_file(updated, root, manifest, lambda _: b"new-pdf")
     assert result["status"] == "updated"
     assert canonical.read_bytes() == b"new-pdf"
-    versions = list((root / ".cmucw/versions/7").iterdir())
+    versions = list((root / ".cmu-cli/versions/7").iterdir())
     assert len(versions) == 1
     assert versions[0].read_bytes() == b"same-pdf"

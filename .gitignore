@@ -11,10 +11,10 @@ dist/
 .env.*
 config.json
 config.local.json
-cmucw.json
+cmu-cli.json
 cookies*
 *.sqlite*
 *.db
 downloads/
-.cmucw/
+.cmu-cli/
 *.part

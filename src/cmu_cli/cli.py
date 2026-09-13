@@ -1,4 +1,4 @@
-"""cmucw: read-only CMU coursework CLI for Canvas, Piazza, and Gradescope entry points."""
+"""cmu-cli: read-only CMU coursework CLI for Canvas, Piazza, and Gradescope entry points."""
 
 from __future__ import annotations
 
@@ -701,7 +701,7 @@ def command_provider(args):
         )
         if _CONTEXT["warnings"]:
             print(
-                "cmucw: incomplete results; use --json for source status",
+                "cmu-cli: incomplete results; use --json for source status",
                 file=sys.stderr,
             )
     return 2 if error else (3 if _CONTEXT["warnings"] else 0)
@@ -718,11 +718,11 @@ def ed_identifier(value):
 
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(
-        prog="cmucw",
+        prog="cmu-cli",
         description="Unofficial read-only coursework queries and local sync",
     )
     root.add_argument("--config", type=Path, help="User JSON config path")
-    root.add_argument("--version", action="version", version="cmucw 0.1.0")
+    root.add_argument("--version", action="version", version="cmu-cli 0.1.0")
     commands = root.add_subparsers(dest="command", required=True)
     ed = commands.add_parser(
         "ed", help="Read-only Ed API token queries (no Canvas required)"
@@ -772,7 +772,7 @@ def parser() -> argparse.ArgumentParser:
     history.add_argument("--json", action="store_true")
     configuration = commands.add_parser("config", help="Offline configuration tools")
     configuration.add_argument("action", choices=["init", "validate"])
-    configuration.add_argument("--output", type=Path, default=Path("cmucw.json"))
+    configuration.add_argument("--output", type=Path, default=Path("cmu-cli.json"))
     configuration.add_argument("--json", action="store_true")
     auth = commands.add_parser("auth", help="Offline OAuth registration preflight only")
     auth.add_argument("action", choices=["check-registration"])
@@ -833,7 +833,7 @@ def main() -> None:
             }
             if args.json:
                 print_json(None, error=error)
-            print("cmucw: " + str(exc), file=sys.stderr)
+            print("cmu-cli: " + str(exc), file=sys.stderr)
             raise SystemExit(2) from None
         _CONTEXT["warnings"].append({"code": "OAUTH_ONBOARDING_NOT_IMPLEMENTED"})
         if args.json:
@@ -863,7 +863,7 @@ def main() -> None:
                 return
             if args.command == "config" and args.action == "init":
                 template = (
-                    resources.files("cmucw")
+                    resources.files("cmu_cli")
                     .joinpath("config.example.json")
                     .read_text(encoding="utf-8")
                 )
@@ -887,7 +887,7 @@ def main() -> None:
                         "canvas": "environment token or explicit browser_auth",
                         "piazza": "explicit browser_auth and class URL",
                         "gradescope": "explicit browser_auth and course URL",
-                        "ed": "explicit CMUCW_ED_TOKEN; local listing search",
+                        "ed": "explicit CMU_CLI_ED_TOKEN; local listing search",
                         "sio": "probe and selected semester table; rendered HTML may be required",
                         "browser_open": True,
                     },
@@ -925,7 +925,7 @@ def main() -> None:
             if _CONTEXT["warnings"]:
                 if not getattr(args, "json", False):
                     print(
-                        "cmucw: incomplete results; use --json for source status",
+                        "cmu-cli: incomplete results; use --json for source status",
                         file=sys.stderr,
                     )
                 code = 3
@@ -938,7 +938,7 @@ def main() -> None:
         }
         if getattr(args, "json", False):
             print_json(None, error=error)
-        print("cmucw: " + code, file=sys.stderr)
+        print("cmu-cli: " + code, file=sys.stderr)
         raise SystemExit(2) from None
 
 

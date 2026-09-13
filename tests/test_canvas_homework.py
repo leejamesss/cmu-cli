@@ -2,7 +2,7 @@ import hashlib
 
 import pytest
 
-from cmucw.storage import canvas_material_folder, sync_canvas_file
+from cmu_cli.storage import canvas_material_folder, sync_canvas_file
 
 
 @pytest.mark.parametrize(
@@ -256,8 +256,8 @@ def test_migration_does_not_overwrite_target_symlink(tmp_path, dangling):
 def test_course_sync_persists_migrated_manifest(tmp_path):
     import json
 
-    from cmucw.models import Config, Course
-    from cmucw.storage import ensure_layout, sync_course, write_json
+    from cmu_cli.models import Config, Course
+    from cmu_cli.storage import ensure_layout, sync_course, write_json
 
     course = Course(code="TEST", canvas_id=1, name="Test", directory="Test")
     config = Config(
@@ -267,7 +267,7 @@ def test_course_sync_persists_migrated_manifest(tmp_path):
     )
     root = ensure_layout(config, course)
     old, manifest = seed(root)
-    path = root / ".cmucw/download_manifest.json"
+    path = root / ".cmu-cli/download_manifest.json"
     write_json(path, manifest)
     for _ in range(2):
         sync_course(config, course, [], [item()], [], [], True, no_fetch)
@@ -287,7 +287,7 @@ def test_migrated_changed_revision_archives_old_bytes_and_keeps_conflict(tmp_pat
     assert result["status"] == "updated"
     assert (tmp_path / result["relative_path"]).read_bytes() == b"revision"
     assert target.read_bytes() == b"user-file"
-    versions = list((tmp_path / ".cmucw/versions/42").iterdir())
+    versions = list((tmp_path / ".cmu-cli/versions/42").iterdir())
     assert len(versions) == 1 and versions[0].read_bytes() == b"original"
     assert (
         sync_canvas_file(revised, tmp_path, manifest, no_fetch)["status"] == "unchanged"
@@ -297,7 +297,7 @@ def test_migrated_changed_revision_archives_old_bytes_and_keeps_conflict(tmp_pat
 def test_migration_copy_failure_keeps_original_and_manifest(tmp_path, monkeypatch):
     import copy
 
-    from cmucw import storage
+    from cmu_cli import storage
 
     old, manifest = seed(tmp_path)
     before = copy.deepcopy(manifest)
