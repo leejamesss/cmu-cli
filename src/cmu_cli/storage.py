@@ -127,6 +127,28 @@ DOWNLOADABLE_EXTENSIONS = {
 }
 
 
+def local_material_paths(root: Path) -> list[Path]:
+    """Every downloaded material under a course root, wherever sync filed it.
+
+    ``canvas_material_folder`` routes a download into one of six categories. Listing a
+    fixed subset of them hides whatever landed in the others -- a syllabus, a course
+    calendar or any homework attachment. Walking the course root instead keeps this
+    listing in step with the routing rules by construction. The metadata cache holds
+    retained earlier revisions under downloadable names, so it is excluded explicitly
+    rather than by extension.
+    """
+    if not root.is_dir():
+        return []
+    return [
+        path
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+        and not path.name.startswith(".")
+        and path.suffix.lower() in DOWNLOADABLE_EXTENSIONS
+        and ".cmucw" not in path.relative_to(root).parts
+    ]
+
+
 def clean_html(value: str | None) -> str:
     text = re.sub(r"<[^>]+>", " ", value or "")
     return re.sub(r"\s+", " ", unescape(text)).strip()

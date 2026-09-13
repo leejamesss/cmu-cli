@@ -24,7 +24,13 @@ from .models import Config, Course, load_config
 from .official_materials import public_materials
 from .official_quizzes import public_quizzes
 from .piazza_client import PiazzaClient
-from .storage import DOWNLOADABLE_EXTENSIONS, clean_html, format_time, sync_course
+from .storage import (
+    clean_html,
+    course_root,
+    format_time,
+    local_material_paths,
+    sync_course,
+)
 from .submissions import submission_state
 
 SCHEMA_VERSION = "1.0"
@@ -442,28 +448,18 @@ def command_materials(
                     "path": None,
                 }
             )
-        current_root = config.storage_root / course.directory / config.term
-        for folder_name in ["01_讲义", "03_Recitations"]:
-            folder = current_root / folder_name
-            if not folder.exists():
-                continue
-            for path in folder.rglob("*"):
-                if (
-                    path.is_file()
-                    and not path.name.startswith(".")
-                    and path.suffix.lower() in DOWNLOADABLE_EXTENSIONS
-                ):
-                    rows.append(
-                        {
-                            "source": "local",
-                            "course": course.code,
-                            "name": path.name,
-                            "size": path.stat().st_size,
-                            "updated_at": None,
-                            "url": None,
-                            "path": str(path),
-                        }
-                    )
+        for path in local_material_paths(course_root(config, course)):
+            rows.append(
+                {
+                    "source": "local",
+                    "course": course.code,
+                    "name": path.name,
+                    "size": path.stat().st_size,
+                    "updated_at": None,
+                    "url": None,
+                    "path": str(path),
+                }
+            )
     rows.sort(key=lambda item: (item["course"], item["source"], item["name"] or ""))
     rows = limited(rows, args.limit)
     if args.json:
