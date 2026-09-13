@@ -3,7 +3,7 @@ requires = ["setuptools>=84.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cmucw"
+name = "cmu-cli"
 version = "0.1.0"
 description = "A command-line toolkit for CMU coursework across Canvas, Piazza, Gradescope, Ed Discussion, and SIO."
 readme = "README.md"
@@ -11,7 +11,7 @@ requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{name = "Jiatao Li"}]
-dependencies = ["requests>=2.31,<3", "beautifulsoup4>=4.12,<5", "python-dateutil>=2.8,<3", "tzdata>=2024.1"]
+dependencies = ["rich>=13.7,<15", "requests>=2.31,<3", "beautifulsoup4>=4.12,<5", "python-dateutil>=2.8,<3", "tzdata>=2024.1"]
 
 [project.urls]
 Source = "https://github.com/leejamesss/cmu-cli"
@@ -30,7 +30,8 @@ line-length = 88
 select = ["E4", "E7", "E9", "F", "I", "UP", "B", "SIM", "C4", "BLE", "EXE", "PLW", "TRY004", "FURB", "RUF059"]
 
 [project.scripts]
-cmucw = "cmucw.cli:main"
+cmu-cli = "cmu_cli.cli:main"
+cmucw = "cmu_cli.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -39,4 +40,4 @@ where = ["src"]
 testpaths = ["tests"]
 
 [tool.setuptools.package-data]
-cmucw = ["config.example.json"]
+cmu_cli = ["config.example.json"]

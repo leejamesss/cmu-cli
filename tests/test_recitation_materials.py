@@ -1,5 +1,5 @@
-from cmucw.official_materials import public_materials
-from cmucw.storage import canvas_material_folder, sync_canvas_file
+from cmu_cli.official_materials import public_materials
+from cmu_cli.storage import canvas_material_folder, sync_canvas_file
 from tests.test_official_materials import FakeSession
 
 
@@ -9,10 +9,10 @@ def test_all_recitation_columns_and_variants(monkeypatch, tmp_path):
     <td><a href="recs/rec1_sol.pdf">Solutions</a></td></tr>
     <tr><td>Sep 18</td><td>Next</td><td>Not released</td><td></td></tr></table>"""
     monkeypatch.setattr(
-        "cmucw.official_materials.public_document", lambda *a, **k: html.encode()
+        "cmu_cli.official_materials.public_document", lambda *a, **k: html.encode()
     )
     monkeypatch.setattr(
-        "cmucw.official_materials.safe_request",
+        "cmu_cli.official_materials.safe_request",
         lambda session, url, **kw: FakeSession().head(url, 30, False),
     )
     rows = public_materials("DEMO-101", "https://courses.example.invalid/")

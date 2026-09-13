@@ -37,12 +37,12 @@ jobs:
               venv.create(root / 'env', with_pip=True)
               python = root / 'env/bin/python'
               subprocess.run([str(python), '-m', 'pip', 'install', str(wheel), 'pytest', 'jsonschema'], check=True)
-              environment = {k: v for k, v in os.environ.items() if k not in ('PYTHONPATH', 'PYTHONHOME') and not k.startswith('CMUCW_')}
+              environment = {k: v for k, v in os.environ.items() if k not in ('PYTHONPATH', 'PYTHONHOME') and not k.startswith(('CMU_CLI_', 'CMUCW_'))}
               (root / 'empty-home').mkdir()
               environment['HOME'] = str(root / 'empty-home')
-              for args in [['--help'], ['--version'], ['demo', '--json'], ['config', 'init'], ['--config', 'cmucw.json', 'config', 'validate', '--json'], ['--config', 'cmucw.json', 'doctor', '--json']]:
-                  subprocess.run([str(python), '-m', 'cmucw', *args], cwd=root, env=environment, check=True)
+              for args in [['--help'], ['--version'], ['demo', '--json'], ['config', 'init'], ['--config', 'cmu-cli.json', 'config', 'validate', '--json'], ['--config', 'cmu-cli.json', 'doctor', '--json']]:
+                  subprocess.run([str(python), '-m', 'cmu_cli', *args], cwd=root, env=environment, check=True)
               shutil.copytree(checkout / 'tests', root / 'tests')
               shutil.copytree(checkout / 'docs', root / 'docs')
-              subprocess.run([str(python), '-c', 'import cmucw; assert "site-packages" in cmucw.__file__'], cwd=root, env=environment, check=True)
+              subprocess.run([str(python), '-c', 'import cmu_cli; assert "site-packages" in cmu_cli.__file__'], cwd=root, env=environment, check=True)
               subprocess.run([str(python), '-m', 'pytest', '-q', 'tests'], cwd=root, env=environment, check=True)

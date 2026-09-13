@@ -7,8 +7,8 @@ import stat
 
 import pytest
 
-from cmucw import storage
-from cmucw.models import Config, Course
+from cmu_cli import storage
+from cmu_cli.models import Config, Course
 
 
 def item(file_id=1, revision="v1", name="note.txt", content=b"ONE"):

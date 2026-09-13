@@ -1,3 +1,5 @@
-from .cli import main
+"""Compatibility for python -m cmucw; implementation lives in cmu_cli."""
 
-main()
+from cmu_cli.cli import main
+
+raise SystemExit(main())

@@ -1,6 +1,6 @@
 # Configuration
 
-Run `cmucw config init --output cmucw.json`, then `cmucw --config cmucw.json config validate --json`. Configuration precedence is explicit `--config`, then `CMUCW_CONFIG`, then `~/.config/cmucw/config.json`. Relative storage paths are resolved against the config directory, not the shell working directory.
+Run `cmu-cli config init --output cmu-cli.json`, then `cmu-cli --config cmu-cli.json config validate --json`. Configuration precedence is explicit `--config`, then `CMU_CLI_CONFIG`, then `~/.config/cmu_cli/config.json`. Relative storage paths are resolved against the config directory, not the shell working directory.
 
 Ed and SIO commands use optional provider-only configuration and do not require
 Canvas keys; see [provider configuration and exact commands](provider-cli.md).

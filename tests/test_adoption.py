@@ -1,9 +1,9 @@
 import pytest
 
-from cmucw import cli
-from cmucw.demo import run_demo
-from cmucw.models import Course
-from cmucw.storage import assignments_markdown
+from cmu_cli import cli
+from cmu_cli.demo import run_demo
+from cmu_cli.models import Course
+from cmu_cli.storage import assignments_markdown
 
 
 @pytest.mark.parametrize(

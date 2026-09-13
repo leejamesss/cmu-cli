@@ -8,8 +8,8 @@ import pytest
 import requests
 from requests.adapters import BaseAdapter
 
-from cmucw.ed_client import EdAuthError, EdClient, EdError
-from cmucw.web_session import configured_session
+from cmu_cli.ed_client import EdAuthError, EdClient, EdError
+from cmu_cli.web_session import configured_session
 
 # Restore Requests preparation only on synthetic sessions whose HTTPS adapter is
 # in-memory; retain the suite-wide network guard for every other session.
@@ -220,14 +220,14 @@ def test_search_scope_and_fetch_count():
 
 
 def test_environment_token_is_explicit(monkeypatch):
-    monkeypatch.delenv("CMUCW_ED_TOKEN", raising=False)
+    monkeypatch.delenv("CMU_CLI_ED_TOKEN", raising=False)
     with pytest.raises(EdAuthError):
         EdClient().courses()
     session = synthetic_session()
     transport = Transport([ok({"courses": []})])
     session.mount("https://", transport)
-    monkeypatch.setenv("CMUCW_ED_TOKEN", "synthetic-env-token")
-    monkeypatch.setattr("cmucw.ed_client.configured_session", lambda: session)
+    monkeypatch.setenv("CMU_CLI_ED_TOKEN", "synthetic-env-token")
+    monkeypatch.setattr("cmu_cli.ed_client.configured_session", lambda: session)
     assert EdClient().courses() == []
     assert transport.sent[0].headers["Authorization"] == "Bearer synthetic-env-token"
 

@@ -2,13 +2,13 @@
 ## Ed CLI and partial SIO readiness
 
 ```sh
-cmucw ed courses --json
-cmucw ed threads --course-id 12 --page-size 100 --max-pages 100 --json
-cmucw ed thread --id 34 --course-id 12 --json
-cmucw ed replies --id 34 --json
-cmucw ed search --course-id 12 --query deadline --json
-cmucw sio probe --json
-cmucw sio schedule --json
+cmu-cli ed courses --json
+cmu-cli ed threads --course-id 12 --page-size 100 --max-pages 100 --json
+cmu-cli ed thread --id 34 --course-id 12 --json
+cmu-cli ed replies --id 34 --json
+cmu-cli ed search --course-id 12 --query deadline --json
+cmu-cli sio probe --json
+cmu-cli sio schedule --json
 ```
 
 IDs above are synthetic: replace them with exact Ed IDs. `--id` is a global
@@ -17,9 +17,9 @@ and search, optional for thread/replies identity checking. `--page-size` is
 1–100; `--max-pages` is 1–1000; both default to 100. Search is local fetched
 listing title/content/document matching, excluding replies and unfetched detail.
 
-Ed requires only environment `CMUCW_ED_TOKEN`, not Canvas or browser auth.
+Ed requires only environment `CMU_CLI_ED_TOKEN`, not Canvas or browser auth.
 Neither provider requires a config file. Optional `--config PATH` (before the
-provider command), `CMUCW_CONFIG`, or an existing default config can supply
+provider command), `CMU_CLI_CONFIG`, or an existing default config can supply
 `ed_api_base_url` and `browser_auth`. Explicit missing config paths fail closed.
 A provider-only config may contain just `{"ed_api_base_url":"https://us.edstem.org/api"}`.
 The alternate exact supported base is `https://edstem.org/api`; no automatic

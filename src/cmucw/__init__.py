@@ -1,3 +1,5 @@
-"""Read-only coursework queries and local downloads."""
+"""Legacy launch alias. Import Python APIs from cmu_cli."""
 
-__version__ = "0.1.0"
+from cmu_cli import __version__
+
+__all__ = ["__version__"]

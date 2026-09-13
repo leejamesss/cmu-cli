@@ -3,8 +3,8 @@
 Run these after the [source installation](../README.md):
 
 ```sh
-cmucw demo
-cmucw demo --json
+cmu-cli demo
+cmu-cli demo --json
 ```
 
 1. Three synthetic assignments represent submitted, not submitted and unknown states.
@@ -59,7 +59,7 @@ The generated assignment index (legacy Chinese labels remain compatible):
 ```text
 # DEMO-101 Canvas 作业索引
 
-由 `cmucw sync` 生成。截止时间时区：America/New_York。
+由 `cmu-cli sync` 生成。截止时间时区：America/New_York。
 
 ## Read the syllabus
 - 截止：未设置

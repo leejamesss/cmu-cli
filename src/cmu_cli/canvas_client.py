@@ -10,6 +10,7 @@ import requests
 
 from .web_session import (
     MAX_DOCUMENT_BYTES,
+    CrossOriginRedirect,
     SessionError,
     bounded_content,
     canvas_api_session,
@@ -107,8 +108,18 @@ class CanvasClient:
         try:
             origin = https_origin(url)
             if origin == self.origin:
-                session = self.session
-                response = safe_request(session, url, origin=self.origin)
+                try:
+                    response = safe_request(self.session, url, origin=self.origin)
+                except CrossOriginRedirect as exc:
+                    # Canvas answers a file URL with a 302 to pre-signed storage on
+                    # another host. That URL carries its own signature, so it must be
+                    # fetched *without* our credentials -- which is also the only way
+                    # to fetch it at all. Handing off here keeps the rule the origin
+                    # pin exists to enforce: nothing authenticated leaves the origin.
+                    anonymous_session = configured_session()
+                    response = safe_request(
+                        anonymous_session, exc.location, anonymous=True
+                    )
             else:
                 anonymous_session = configured_session()
                 response = safe_request(anonymous_session, url, anonymous=True)

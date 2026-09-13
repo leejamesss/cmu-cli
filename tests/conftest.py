@@ -1,5 +1,7 @@
 """Block unmocked Requests and subprocess.run; not a general OS sandbox."""
 
+import os
+
 import pytest
 
 
@@ -14,11 +16,14 @@ def offline(monkeypatch):
 
     monkeypatch.setattr(requests.sessions.Session, "request", forbidden)
     monkeypatch.setattr(subprocess, "run", forbidden)
+    for name in list(os.environ):
+        if name.startswith(("CMU_CLI_", "CMUCW_")):
+            monkeypatch.delenv(name, raising=False)
     for name in [
-        "CMUCW_CANVAS_TOKEN",
-        "CMUCW_ALLOW_BROWSER_COOKIES",
-        "CMUCW_EDGE_COOKIE_FILE",
-        "CMUCW_COOKIE_HOSTS",
-        "CMUCW_CONFIG",
+        "CMU_CLI_CANVAS_TOKEN",
+        "CMU_CLI_ALLOW_BROWSER_COOKIES",
+        "CMU_CLI_EDGE_COOKIE_FILE",
+        "CMU_CLI_COOKIE_HOSTS",
+        "CMU_CLI_CONFIG",
     ]:
         monkeypatch.delenv(name, raising=False)

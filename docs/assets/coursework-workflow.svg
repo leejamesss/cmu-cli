@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1360" height="860" viewBox="0 0 680 430" role="img" aria-labelledby="title desc">
   <title id="title">Less tab switching. One coursework CLI.</title>
-  <desc id="desc">Canvas, Piazza, Gradescope, Ed Discussion and SIO connect to cmucw provider-specific read commands. Results are available in the terminal or versioned JSON; Canvas sync also produces local materials and indexes. Each provider needs authorization. Ed live accounts and SIO authenticated HTTP remain unverified.</desc>
+  <desc id="desc">Canvas, Piazza, Gradescope, Ed Discussion and SIO connect to cmu-cli provider-specific read commands. Results are available in the terminal or versioned JSON; Canvas sync also produces local materials and indexes. Each provider needs authorization. Ed live accounts and SIO authenticated HTTP remain unverified.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
       <path d="M2 1L8 5L2 9" fill="none" stroke="#888780" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -42,7 +42,7 @@
   <path class="arr partial" d="M200 312H226V244M200 380H226V312"/>
   <g class="c-purple">
     <rect x="260" y="216" width="120" height="56" rx="3"/>
-    <text style="font-family: monospace; font-weight: 600" class="th" x="320" y="244" text-anchor="middle" dominant-baseline="central">cmucw</text>
+    <text style="font-family: monospace; font-weight: 600" class="th" x="320" y="244" text-anchor="middle" dominant-baseline="central">cmu-cli</text>
   </g>
   <path class="arr" d="M380 244H408V176H430" marker-end="url(#arrow)"/>
   <path class="arr" d="M408 244H430" marker-end="url(#arrow)"/>

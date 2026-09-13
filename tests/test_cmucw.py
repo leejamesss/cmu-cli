@@ -1,5 +1,5 @@
-from cmucw.models import Config, Course
-from cmucw.storage import (
+from cmu_cli.models import Config, Course
+from cmu_cli.storage import (
     canvas_material_folder,
     clean_html,
     ensure_layout,

@@ -6,12 +6,12 @@ from unittest.mock import Mock
 
 import pytest
 
-from cmucw import cli, models, sio_client
+from cmu_cli import cli, models, sio_client
 
 
 def test_history_dispatch(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(models, "CONFIG_PATH", tmp_path / "absent.json")
-    monkeypatch.setattr(sys, "argv", ["cmucw", "sio", "waitlist-history", "--json"])
+    monkeypatch.setattr(sys, "argv", ["cmu-cli", "sio", "waitlist-history", "--json"])
     client = Mock()
     client.waitlist_history.return_value = {
         "status": "ok",

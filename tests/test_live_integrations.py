@@ -9,10 +9,10 @@ from unittest.mock import Mock
 import pytest
 import requests
 
-from cmucw.gradescope_client import GradescopeClient, GradescopeError
-from cmucw.models import Course
-from cmucw.piazza_client import PiazzaClient, PiazzaError
-from cmucw.web_session import SessionError, browser_cookie_session, canvas_api_session
+from cmu_cli.gradescope_client import GradescopeClient, GradescopeError
+from cmu_cli.models import Course
+from cmu_cli.piazza_client import PiazzaClient, PiazzaError
+from cmu_cli.web_session import SessionError, browser_cookie_session, canvas_api_session
 from tests.test_network_security import payload, transport
 
 A = Course(
@@ -101,7 +101,7 @@ def test_explicit_loader_and_canvas_fallback(monkeypatch, browser):
     loader.assert_called_once_with(
         cookie_file=opts["cookie_file"], domain_name="canvas.example.invalid"
     )
-    monkeypatch.setenv("CMUCW_CANVAS_TOKEN", "SYNTHETIC")
+    monkeypatch.setenv("CMU_CLI_CANVAS_TOKEN", "SYNTHETIC")
     assert (
         canvas_api_session("https://canvas.example.invalid", opts)[1]
         == "environment_token"
