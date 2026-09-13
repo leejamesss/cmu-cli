@@ -54,7 +54,7 @@ The following `data` fields were captured from the demo, not a live course. Enve
 }
 ```
 
-The generated assignment index (legacy Chinese labels remain compatible):
+The generated assignment index (Chinese category labels):
 
 ```text
 # DEMO-101 Canvas 作业索引

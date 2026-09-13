@@ -99,9 +99,7 @@ class EdClient:
             raise EdError("Only supported Ed read endpoints are allowed")
         try:
             if self.session is None:
-                token = os.environ.get(
-                    "CMU_CLI_ED_TOKEN", os.environ.get("CMUCW_ED_TOKEN")
-                )
+                token = os.environ.get("CMU_CLI_ED_TOKEN")
                 if not token or any(ord(c) <= 32 or ord(c) >= 127 for c in token):
                     raise EdAuthError("Set CMU_CLI_ED_TOKEN to an Ed API token")
                 self.session = configured_session()

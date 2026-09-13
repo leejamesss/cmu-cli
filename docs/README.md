@@ -8,7 +8,6 @@
 - [Configure courses and local storage](configuration.md)
 - [Use an explicit Edge/Chrome session](browser-auth.md)
 - [Understand token and institutional authorization](auth.md)
-- [Upgrade from cmucw](migration.md)
 
 ## Build your own workflow
 

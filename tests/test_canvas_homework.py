@@ -59,7 +59,7 @@ def item(name="hw2_2026.pdf"):
 
 
 def no_fetch(_) -> bytes:
-    raise AssertionError("unchanged migration must not fetch")
+    raise AssertionError("unchanged material must not fetch")
 
 
 def seed(root, relative="02_作业/Canvas资料/hw2_2026.pdf", name="hw2_2026.pdf"):
@@ -90,7 +90,7 @@ def test_new_download_and_next_sync(tmp_path):
 
 
 @pytest.mark.parametrize("target_bytes", [None, b"original", b"user-data"])
-def test_existing_manifest_migrates_without_fetch_and_is_idempotent(
+def test_existing_manifest_stays_in_place_without_fetch_and_is_idempotent(
     tmp_path, target_bytes
 ):
     old, manifest = seed(tmp_path)
@@ -100,9 +100,9 @@ def test_existing_manifest_migrates_without_fetch_and_is_idempotent(
         target.write_bytes(target_bytes)
     result = sync_canvas_file(item(), tmp_path, manifest, no_fetch)
     canonical = tmp_path / result["relative_path"]
-    assert canonical.parent == target.parent
+    assert canonical == old
     assert canonical.read_bytes() == b"original"
-    assert not old.exists()
+    assert old.exists()
     assert manifest["42"]["relative_path"] == result["relative_path"]
     assert manifest["42"]["sha256"] == hashlib.sha256(b"original").hexdigest()
     if target_bytes is not None:
@@ -138,7 +138,7 @@ def test_custom_manifest_path_is_preserved(tmp_path, relative):
     assert old.read_bytes() == b"original"
 
 
-def test_ambiguous_manifest_not_migrated(tmp_path):
+def test_ambiguous_manifest_path_is_preserved(tmp_path):
     name = "HW1_HW2.pdf"
     relative = "02_作业/Canvas资料/" + name
     old, manifest = seed(tmp_path, relative, name)
@@ -149,20 +149,20 @@ def test_ambiguous_manifest_not_migrated(tmp_path):
     assert old.read_bytes() == b"original"
 
 
-def test_migration_preserves_renamed_canonical_basename(tmp_path):
+def test_recorded_custom_basename_stays_in_place(tmp_path):
     old, manifest = seed(tmp_path, "02_作业/Canvas资料/My problems.pdf")
     result = sync_canvas_file(item(), tmp_path, manifest, no_fetch)
-    assert result["relative_path"] == "02_作业/Assignment_02/My problems.pdf"
-    assert not old.exists()
+    assert result["relative_path"] == "02_作业/Canvas资料/My problems.pdf"
+    assert old.exists()
 
 
 def test_occupied_conflict_name_is_never_overwritten(tmp_path):
-    old, manifest = seed(tmp_path)
-    folder = tmp_path / "02_作业/Assignment_02"
-    folder.mkdir(parents=True)
+    old, manifest = seed(tmp_path, "02_作业/Assignment_02/hw2_2026.pdf")
+    folder = old.parent
     (folder / old.name).write_bytes(b"user-1")
     (folder / "hw2_2026__canvas_42.pdf").write_bytes(b"user-2")
-    result = sync_canvas_file(item(), tmp_path, manifest, no_fetch)
+    result = sync_canvas_file(item(), tmp_path, manifest, lambda _: b"original")
+    assert result["relative_path"] == "02_作业/Assignment_02/hw2_2026__canvas_42_2.pdf"
     assert (tmp_path / result["relative_path"]).read_bytes() == b"original"
     assert (folder / old.name).read_bytes() == b"user-1"
     assert (folder / "hw2_2026__canvas_42.pdf").read_bytes() == b"user-2"
@@ -195,10 +195,10 @@ def test_existing_course_family_and_ambiguity(tmp_path, existing, expected):
     )
 
 
-@pytest.mark.parametrize("migrate", [True, False])
-def test_sync_uses_hw_course_convention(tmp_path, migrate):
+@pytest.mark.parametrize("managed", [True, False])
+def test_new_sync_uses_hw_convention_existing_path_stays(tmp_path, managed):
     (tmp_path / "02_作业/HW1").mkdir(parents=True)
-    if migrate:
+    if managed:
         _old, manifest = seed(tmp_path)
         fetch = no_fetch
     else:
@@ -208,7 +208,8 @@ def test_sync_uses_hw_course_convention(tmp_path, migrate):
             return b"original"
 
     result = sync_canvas_file(item(), tmp_path, manifest, fetch)
-    assert result["relative_path"] == "02_作业/HW2/hw2_2026.pdf"
+    expected = "Canvas资料" if managed else "HW2"
+    assert result["relative_path"] == f"02_作业/{expected}/hw2_2026.pdf"
     assert (
         sync_canvas_file(item(), tmp_path, manifest, no_fetch)["relative_path"]
         == result["relative_path"]
@@ -216,7 +217,7 @@ def test_sync_uses_hw_course_convention(tmp_path, migrate):
     assert not (tmp_path / "02_作业/Assignment_02").exists()
 
 
-def test_ambiguous_existing_folders_prevent_migration(tmp_path):
+def test_ambiguous_existing_folders_do_not_change_manifest_path(tmp_path):
     for name in ["HW2", "Assignment_02"]:
         (tmp_path / "02_作业" / name).mkdir(parents=True)
     old, manifest = seed(tmp_path)
@@ -225,20 +226,20 @@ def test_ambiguous_existing_folders_prevent_migration(tmp_path):
     assert old.read_bytes() == b"original"
 
 
-def test_missing_old_file_downloads_into_numbered_folder_without_clobber(tmp_path):
+def test_missing_managed_file_downloads_to_recorded_path_without_clobber(tmp_path):
     old, manifest = seed(tmp_path)
     old.unlink()
     target = tmp_path / "02_作业/Assignment_02" / old.name
     target.parent.mkdir(parents=True)
     target.write_bytes(b"user-file")
     result = sync_canvas_file(item(), tmp_path, manifest, lambda _: b"original")
-    assert (tmp_path / result["relative_path"]).parent == target.parent
+    assert tmp_path / result["relative_path"] == old
     assert (tmp_path / result["relative_path"]).read_bytes() == b"original"
     assert target.read_bytes() == b"user-file"
 
 
 @pytest.mark.parametrize("dangling", [False, True])
-def test_migration_does_not_overwrite_target_symlink(tmp_path, dangling):
+def test_recorded_path_does_not_touch_numbered_folder_symlink(tmp_path, dangling):
     old, manifest = seed(tmp_path)
     target = tmp_path / "02_作业/Assignment_02" / old.name
     target.parent.mkdir(parents=True)
@@ -250,10 +251,10 @@ def test_migration_does_not_overwrite_target_symlink(tmp_path, dangling):
     assert target.is_symlink()
     assert (tmp_path / result["relative_path"]).read_bytes() == b"original"
     assert tmp_path / result["relative_path"] != target
-    assert not old.exists()
+    assert old.exists()
 
 
-def test_course_sync_persists_migrated_manifest(tmp_path):
+def test_course_sync_preserves_recorded_manifest(tmp_path):
     import json
 
     from cmu_cli.models import Config, Course
@@ -272,12 +273,12 @@ def test_course_sync_persists_migrated_manifest(tmp_path):
     for _ in range(2):
         sync_course(config, course, [], [item()], [], [], True, no_fetch)
         saved = json.loads(path.read_text())
-        assert saved["42"]["relative_path"] == "02_作业/Assignment_02/hw2_2026.pdf"
+        assert saved["42"]["relative_path"] == "02_作业/Canvas资料/hw2_2026.pdf"
         assert (root / saved["42"]["relative_path"]).read_bytes() == b"original"
-    assert not old.exists()
+    assert old.exists()
 
 
-def test_migrated_changed_revision_archives_old_bytes_and_keeps_conflict(tmp_path):
+def test_managed_changed_revision_archives_old_bytes_and_keeps_other_folder(tmp_path):
     old, manifest = seed(tmp_path)
     target = tmp_path / "02_作业/Assignment_02" / old.name
     target.parent.mkdir(parents=True)
@@ -294,7 +295,7 @@ def test_migrated_changed_revision_archives_old_bytes_and_keeps_conflict(tmp_pat
     )
 
 
-def test_migration_copy_failure_keeps_original_and_manifest(tmp_path, monkeypatch):
+def test_archive_copy_failure_keeps_original_and_manifest(tmp_path, monkeypatch):
     import copy
 
     from cmu_cli import storage
@@ -308,13 +309,18 @@ def test_migration_copy_failure_keeps_original_and_manifest(tmp_path, monkeypatc
 
     monkeypatch.setattr(storage.shutil, "copyfileobj", fail_copy)
     with pytest.raises(OSError, match="simulated disk failure"):
-        sync_canvas_file(item(), tmp_path, manifest, no_fetch)
+        sync_canvas_file(
+            {**item(), "updated_at": "revision-2"},
+            tmp_path,
+            manifest,
+            lambda _: b"revision",
+        )
     assert old.read_bytes() == b"original"
     assert manifest == before
-    assert list((tmp_path / "02_作业/Assignment_02").iterdir()) == []
+    assert list((tmp_path / ".cmucw/versions/42").iterdir()) == []
 
 
-def test_unmanaged_legacy_file_is_not_moved(tmp_path):
+def test_unmanaged_generic_file_is_not_moved(tmp_path):
     old, _ = seed(tmp_path)
     manifest = {}
     result = sync_canvas_file(item(), tmp_path, manifest, lambda _: b"original")

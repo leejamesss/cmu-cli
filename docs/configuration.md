@@ -15,4 +15,22 @@ Optional top-level `browser_auth` selects one local browser/profile database and
 
 Optional course keys: `public_site_url`, `piazza_url`, `gradescope_url` (credential-free HTTPS URLs or null), `assessment_year` (1900–9999 or null), `assessment_hour` (0–23). Public-site parsers are course-layout-specific heuristics, not general crawling or guaranteed deadline discovery. Their inferred assessment times use Eastern time, independent of display timezone, and are labeled inferred in CLI quiz JSON.
 
-Do not put credentials in this file. `sync` caches provider metadata and may download private materials; use a private, non-shared directory, avoid cloud backup unless authorized, and delete exports according to your institution's retention rules. Some storage subdirectories retain historical Chinese names for compatibility. `--metadata-only` still writes private metadata and indexes.
+Do not put credentials in this file. `sync` caches provider metadata and may download private materials; use a private, non-shared directory, avoid cloud backup unless authorized, and delete exports according to your institution's retention rules. Storage subdirectories use Chinese category names. `--metadata-only` still writes private metadata and indexes.
+
+## Storage identity and existing directories
+
+The distribution and executable are `cmu-cli`; the Python module is `cmu_cli`.
+Only `CMU_CLI_CONFIG`, `CMU_CLI_CANVAS_TOKEN` and `CMU_CLI_ED_TOKEN` select the
+configuration and provider tokens. No old environment variables or alternate
+configuration directories are searched; configuration files are never relocated
+or deleted automatically.
+
+Per-course `.cmucw` is the internal storage format, not a command or package alias.
+It remains the single metadata, download-manifest and version-archive directory;
+renaming it would lose download ownership and revision tracking. Do not rename
+or delete it to change the CLI name. There is no second cache or manifest fallback.
+Existing manifest-managed materials stay at their recorded paths, including the
+generic `02_作业/Canvas资料` folder: sync no longer relocates them into numbered
+homework folders. Normal explicit sync still updates verified remote revisions
+with version archives and preserves local edits. New downloads use the current
+folder classifier. This release performs no automatic data migration.

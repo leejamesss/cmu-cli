@@ -124,13 +124,41 @@ def main():
             'import cmu_cli; assert "site-packages" in cmu_cli.__file__; print(cmu_cli.__file__)',
         ],
     )
-    for executable in ("cmu-cli", "cmucw"):
-        run(executable + "-entry-help", [output / "env/bin" / executable, "--help"])
-        run(
-            executable + "-entry-demo",
-            [output / "env/bin" / executable, "demo", "--json"],
-        )
-    run("legacy-module", [python, "-m", "cmucw", "--help"])
+    run(
+        "package-identity",
+        [
+            python,
+            "-c",
+            """
+from importlib.metadata import distribution
+from importlib.util import find_spec
+from pathlib import Path
+import sys
+import zipfile
+
+dist = distribution('cmu-cli')
+assert dist.metadata['Name'] == 'cmu-cli'
+assert {(e.name, e.value) for e in dist.entry_points} == {
+    ('cmu-cli', 'cmu_cli.cli:main')
+}
+assert find_spec('cmucw') is None
+assert not (Path(sys.executable).parent / 'cmucw').exists()
+with zipfile.ZipFile(sys.argv[1]) as archive:
+    packages = {n.split('/')[0] for n in archive.namelist() if '/' in n}
+    assert packages == {'cmu_cli', f'cmu_cli-{dist.version}.dist-info'}, packages
+print('Only cmu-cli distribution/entry point and cmu_cli package shipped')
+""",
+            wheel,
+        ],
+    )
+    executable = output / "env/bin/cmu-cli"
+    for label, command in [
+        ("help", ["--help"]),
+        ("demo", ["demo", "--json"]),
+        ("init", ["config", "init", "--output", "entry-config.json"]),
+        ("validate", ["--config", "entry-config.json", "config", "validate", "--json"]),
+    ]:
+        run("entry-" + label, [executable, *command])
     for label, command in [
         ("help", ["--help"]),
         ("version", ["--version"]),

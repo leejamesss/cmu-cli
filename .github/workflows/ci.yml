@@ -42,6 +42,11 @@ jobs:
               environment['HOME'] = str(root / 'empty-home')
               for args in [['--help'], ['--version'], ['demo', '--json'], ['config', 'init'], ['--config', 'cmu-cli.json', 'config', 'validate', '--json'], ['--config', 'cmu-cli.json', 'doctor', '--json']]:
                   subprocess.run([str(python), '-m', 'cmu_cli', *args], cwd=root, env=environment, check=True)
+              subprocess.run([str(python), '-c', "from importlib.metadata import distribution; from importlib.util import find_spec; d = distribution('cmu-cli'); assert d.metadata['Name'] == 'cmu-cli'; assert {(e.name, e.value) for e in d.entry_points} == {('cmu-cli', 'cmu_cli.cli:main')}; assert find_spec('cmucw') is None"], cwd=root, env=environment, check=True)
+              assert not (root / 'env/bin/cmucw').exists()
+              executable = root / 'env/bin/cmu-cli'
+              for args in [['demo', '--json'], ['config', 'init', '--output', 'entry-config.json'], ['--config', 'entry-config.json', 'config', 'validate', '--json']]:
+                  subprocess.run([str(executable), *args], cwd=root, env=environment, check=True)
               shutil.copytree(checkout / 'tests', root / 'tests')
               shutil.copytree(checkout / 'docs', root / 'docs')
               subprocess.run([str(python), '-c', 'import cmu_cli; assert "site-packages" in cmu_cli.__file__'], cwd=root, env=environment, check=True)

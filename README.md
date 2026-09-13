@@ -141,10 +141,6 @@ README and red project mark.
 [Provider commands](docs/provider-cli.md) · [Architecture](docs/architecture.md) ·
 [Contributing](CONTRIBUTING.md) · [MIT license](LICENSE)
 
-**Upgrading from `cmucw`?** The primary command and distribution are `cmu-cli`;
-Python APIs live in `cmu_cli`. `cmucw` and `python -m cmucw` remain launch aliases.
-[Migration guide →](docs/migration.md)
-
 ---
 
 <sub>An independent, unofficial tool. Not affiliated with, endorsed by, or sponsored by

@@ -109,11 +109,6 @@ def atomic_write(path: Path, content: bytes, *, exclusive: bool = False) -> None
                 os.unlink(temporary, dir_fd=parent)
 
 
-def safe_unlink(path: Path) -> None:
-    with directory_fd(path.parent) as parent:
-        os.unlink(path.name, dir_fd=parent)
-
-
 LOCAL_TZ = ZoneInfo("America/New_York")
 DOWNLOADABLE_EXTENSIONS = {
     ".pdf",
@@ -361,63 +356,6 @@ def canvas_conflict_paths(destination: Path, file_id: str):
         index += 1
 
 
-def migrate_canvas_homework(
-    root: Path,
-    source_name: str,
-    file_id: str,
-    entry: dict[str, Any],
-) -> Path:
-    """Only relocate manifest-managed files directly inside the old generic folder.
-
-    Copy exclusively before unlinking: a collision (including a dangling symlink)
-    can never clobber a user file. Identical regular files may be reused.
-    """
-    relative = Path(entry["relative_path"])
-    checked_destination(root, root / relative)
-    old = root / relative
-    legacy = Path("02_作业/Canvas资料")
-    if relative.parent != legacy or old.is_symlink():
-        return old
-    folder = canvas_material_folder(root, source_name)
-    if folder.parent != root / "02_作业" or folder == root / legacy:
-        return old
-    # Do not move user aliases or follow a directory symlink outside the course.
-    if (
-        old.parent.resolve() != root.resolve() / legacy
-        or folder.resolve().parent != (root / "02_作业").resolve()
-    ):
-        return old
-    if old.exists() and not old.is_file():
-        return old
-    digest = file_sha256(old) if old.is_file() else None
-    with directory_fd(folder, create=True):
-        pass
-    destination = initial_destination = folder / old.name
-    for destination in canvas_conflict_paths(initial_destination, file_id):
-        if destination.exists() or destination.is_symlink():
-            if (
-                digest
-                and not destination.is_symlink()
-                and destination.is_file()
-                and file_sha256(destination) == digest
-            ):
-                safe_unlink(old)
-                break
-            continue
-        if digest is not None:
-            try:
-                atomic_write(destination, safe_read(old), exclusive=True)
-            except FileExistsError:
-                continue
-            safe_unlink(old)
-        break
-    entry["relative_path"] = str(destination.relative_to(root))
-    if digest is not None:
-        # Do not bless user edits as a verified remote revision.
-        entry.setdefault("sha256", digest)
-    return destination
-
-
 def checked_destination(root: Path, destination: Path) -> None:
     if ".." in destination.parts:
         raise ValueError("Refusing parent traversal in storage paths")
@@ -467,18 +405,6 @@ def sync_canvas_file(
             "Canvas通知索引.md",
         ):
             raise ValueError("Manifest download cannot own an internal export path")
-        shared = any(
-            key != file_id
-            and isinstance(other, dict)
-            and other.get("relative_path")
-            and (root / other["relative_path"]).resolve() == destination.resolve()
-            for key, other in manifest.items()
-        )
-        # Keep aliases and edited legacy files in place; never bless local edits.
-        if not shared and (
-            not destination.exists() or file_sha256(destination) == entry.get("sha256")
-        ):
-            destination = migrate_canvas_homework(root, source_name, file_id, entry)
         if (
             destination.is_file()
             and entry.get("sha256") == file_sha256(destination)

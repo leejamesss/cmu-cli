@@ -74,7 +74,7 @@ def canvas_api_session(
     base_url: str, browser_auth=None
 ) -> tuple[requests.Session, str]:
     https_origin(base_url)
-    token = os.environ.get("CMU_CLI_CANVAS_TOKEN", os.environ.get("CMUCW_CANVAS_TOKEN"))
+    token = os.environ.get("CMU_CLI_CANVAS_TOKEN")
     if not token:
         return browser_cookie_session(
             https_origin(base_url)[1], browser_auth

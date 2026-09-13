@@ -11,18 +11,11 @@ from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
 CONFIG_PATH = Path.home() / ".config/cmu_cli/config.json"
-LEGACY_CONFIG_PATH = Path.home() / ".config/cmucw/config.json"
 
 
 def default_config_path() -> Path:
-    """Prefer the new path, retaining existing installations without moving files."""
-    return (
-        CONFIG_PATH
-        if CONFIG_PATH.exists()
-        else LEGACY_CONFIG_PATH
-        if LEGACY_CONFIG_PATH.exists()
-        else CONFIG_PATH
-    )
+    """Return the single default configuration location without probing files."""
+    return CONFIG_PATH
 
 
 class InvalidTypeError(TypeError, ValueError):
@@ -61,7 +54,7 @@ class ProviderConfig:
 
 def load_provider_config(path: Path | None = None) -> ProviderConfig:
     """Optional provider-only config; never require Canvas or discover cookies."""
-    selected = path or os.environ.get("CMU_CLI_CONFIG", os.environ.get("CMUCW_CONFIG"))
+    selected = path or os.environ.get("CMU_CLI_CONFIG")
     candidate = Path(selected).expanduser() if selected else default_config_path()
     if not selected and not candidate.exists():
         return ProviderConfig()
@@ -107,10 +100,7 @@ class Config:
 
 def load_config(path: Path | None = None) -> Config:
     path = Path(
-        path
-        or os.environ.get(
-            "CMU_CLI_CONFIG", os.environ.get("CMUCW_CONFIG", default_config_path())
-        )
+        path or os.environ.get("CMU_CLI_CONFIG", default_config_path())
     ).expanduser()
     raw = json.loads(path.read_text(encoding="utf-8"))
     base = raw["canvas_base_url"].rstrip("/")
