@@ -32,6 +32,7 @@ from .storage import (
     sync_course,
 )
 from .submissions import submission_state
+from .web_session import BROWSER_EXTRA_HINT, BrowserDependencyMissing
 
 SCHEMA_VERSION = "1.0"
 _CONTEXT: dict[str, Any] = {"command": None, "warnings": [], "sources": []}
@@ -42,6 +43,7 @@ class OperationError(RuntimeError):
 
 
 ERROR_HINTS = {
+    "BROWSER_DEPENDENCY_MISSING": BROWSER_EXTRA_HINT,
     "CONFIG_NOT_FOUND": "Create one with: cmu-cli config init --output cmu-cli.json",
     "CONFIG_ALREADY_EXISTS": "Choose another path with --output, or edit the existing file.",
     "CONFIG_INVALID_JSON": "The configuration file is not valid JSON.",
@@ -56,7 +58,9 @@ ERROR_HINTS = {
 def sanitized_errors():
     try:
         yield
-    except UsageError:
+    except BrowserDependencyMissing:
+        raise OperationError("BROWSER_DEPENDENCY_MISSING") from None
+    except (UsageError, OperationError):
         # Authored here from the caller's own input and configuration, so there is
         # no provider detail to strip and nothing is gained by hiding the reason.
         raise
@@ -101,8 +105,10 @@ def fetch(source, course, function):
     try:
         with sanitized_errors():
             return function()
-    except OperationError:
+    except OperationError as exc:
         record["status"] = "error"
+        if str(exc) == "BROWSER_DEPENDENCY_MISSING":
+            raise
         _CONTEXT["warnings"].append(
             {"code": "SOURCE_UNAVAILABLE", "source": source, "course": course}
         )
@@ -773,6 +779,9 @@ def command_provider(args):
                 record["status"] = "partial"
             for code in result.get("warnings") or ["SOURCE_INCOMPLETE"]:
                 _CONTEXT["warnings"].append({"code": code, "source": source})
+    except BrowserDependencyMissing:
+        record["status"] = "error"
+        raise
     except (EdError, SIOError) as exc:
         record["status"] = "error"
         code = (
@@ -982,10 +991,20 @@ def parser() -> argparse.ArgumentParser:
             )
         if name in {"threads", "search"}:
             action.add_argument(
-                "--page-size", type=positive_limit, choices=range(1, 101), default=100
+                "--page-size",
+                type=positive_limit,
+                choices=range(1, 101),
+                default=100,
+                metavar="N",
+                help="Threads per page (1–100; default: 100)",
             )
             action.add_argument(
-                "--max-pages", type=positive_limit, choices=range(1, 1001), default=100
+                "--max-pages",
+                type=positive_limit,
+                choices=range(1, 1001),
+                default=100,
+                metavar="N",
+                help="Maximum pages (1–1000; default: 100)",
             )
         if name == "search":
             action.add_argument("--query", required=True)

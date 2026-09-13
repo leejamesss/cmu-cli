@@ -34,6 +34,10 @@ jobs:
           wheel = next(pathlib.Path('dist').glob('*.whl')).resolve()
           with tempfile.TemporaryDirectory() as tmp:
               root = pathlib.Path(tmp)
+              from scripts.release_check import check_sdist
+              sdist = next((checkout / 'dist').glob('*.tar.gz'))
+              _, links = check_sdist(sdist, root / 'sdist')
+              print(f'Sdist local links: {links} passed')
               venv.create(root / 'env', with_pip=True)
               python = root / 'env/bin/python'
               subprocess.run([str(python), '-m', 'pip', 'install', str(wheel), 'pytest', 'jsonschema'], check=True)
@@ -49,5 +53,6 @@ jobs:
                   subprocess.run([str(executable), *args], cwd=root, env=environment, check=True)
               shutil.copytree(checkout / 'tests', root / 'tests')
               shutil.copytree(checkout / 'docs', root / 'docs')
+              shutil.copytree(checkout / 'scripts', root / 'scripts')
               subprocess.run([str(python), '-c', 'import cmu_cli; assert "site-packages" in cmu_cli.__file__'], cwd=root, env=environment, check=True)
               subprocess.run([str(python), '-m', 'pytest', '-q', 'tests'], cwd=root, env=environment, check=True)

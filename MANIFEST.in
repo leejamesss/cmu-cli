@@ -1,5 +1,5 @@
 include README.md LICENSE SECURITY.md CONTRIBUTING.md PROVENANCE.md
-recursive-include docs *.md *.json
+recursive-include docs *.md *.json *.svg *.png
 recursive-include examples *.json
 recursive-include tests *.py
 recursive-include scripts *.py

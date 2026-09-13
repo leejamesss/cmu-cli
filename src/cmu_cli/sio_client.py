@@ -13,6 +13,7 @@ from bs4 import BeautifulSoup
 
 from .web_session import (
     MAX_DOCUMENT_BYTES,
+    BrowserDependencyMissing,
     SessionError,
     bounded_content,
     browser_cookie_session,
@@ -305,6 +306,8 @@ class SIOClient:
                 else:
                     content = bounded_content(response, MAX_DOCUMENT_BYTES)
                     result = parser(content.decode("utf-8", errors="replace"))
+        except BrowserDependencyMissing:
+            raise
         except SessionError as exc:
             if (
                 str(exc)
@@ -346,6 +349,8 @@ class SIOClient:
                     )
                 # Bound/close the response, but don't infer SPA state from HTML.
                 bounded_content(response, MAX_DOCUMENT_BYTES)
+        except BrowserDependencyMissing:
+            raise
         except SessionError as exc:
             if str(exc) == (
                 "Authenticated request must remain on its exact HTTPS origin"

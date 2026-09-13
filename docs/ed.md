@@ -9,9 +9,22 @@ CLI syntax and optional configuration: [provider commands](provider-cli.md).
 
 ## Authentication and origins
 
-Create an API token yourself at <https://edstem.org/us/settings/api-tokens> and
-supply it through **CMU_CLI_ED_TOKEN** in the invoking process environment. Do not
-put tokens in config, command arguments, source control or shared transcripts.
+Open Ed's [API token settings](https://edstem.org/us/settings/api-tokens), sign in,
+and use the token controls available to your account. If no token control is
+available, ask Ed or your institution about API access; a browser cookie is not a
+substitute.
+
+For a one-command session, run this in your local terminal (Python 3; works from
+bash or zsh). Paste the token at the hidden prompt, not into the command itself:
+
+```sh
+python -c 'import getpass, os, subprocess; env = dict(os.environ, CMU_CLI_ED_TOKEN=getpass.getpass("Ed API token: ")); raise SystemExit(subprocess.call(["cmu-cli", "ed", "courses", "--json"], env=env))'
+```
+
+Change the command list for other Ed queries. The token is passed only in the
+child process environment, not shell history or JSON config. For repeated use,
+your secret manager can inject **CMU_CLI_ED_TOKEN** into the invoking process.
+Do not put tokens in command arguments, source control or shared transcripts.
 The client sends a Bearer authorization header. It does not inspect `.env`, browser
 cookies, browser profiles, keychains or other credentials. Missing tokens fail
 with `EdAuthError`. Environment-token support is the implemented auth path; browser

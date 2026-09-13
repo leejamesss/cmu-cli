@@ -21,6 +21,16 @@ class SessionError(RuntimeError):
     pass
 
 
+BROWSER_EXTRA_HINT = (
+    "Install browser support: python -m pip install "
+    '"cmu-cli[browser] @ https://github.com/leejamesss/cmu-cli/archive/refs/heads/main.zip"'
+)
+
+
+class BrowserDependencyMissing(SessionError):
+    """Trusted optional-dependency failure; never contains loader diagnostics."""
+
+
 class CrossOriginRedirect(SessionError):
     """An origin-pinned request was redirected off its origin.
 
@@ -109,7 +119,9 @@ def browser_cookie_session(host: str, options=None) -> requests.Session:
         raise SessionError("cookie_file must be an absolute local path")
     try:
         import browser_cookie3
-
+    except ImportError:
+        raise BrowserDependencyMissing(BROWSER_EXTRA_HINT) from None
+    try:
         loader = getattr(browser_cookie3, browser)
         cookies = loader(cookie_file=str(Path(filename).expanduser()), domain_name=host)
         session = configured_session()
