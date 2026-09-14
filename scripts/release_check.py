@@ -240,6 +240,8 @@ print('Only cmu-cli distribution/entry point and cmu_cli package shipped')
         assert "BROWSER_DEPENDENCY_MISSING" in diagnostic
         assert "cmu-cli[browser] @ https://github.com/leejamesss/cmu-cli/" in diagnostic
     executable = output / "env/bin/cmu-cli"
+    run("setup-pty", [python, source / "scripts/setup_smoke.py", executable])
+    run("setup-nontty", [executable, "setup"], expected=2)
     for label, command in [
         ("help", ["--help"]),
         ("demo", ["demo", "--json"]),
