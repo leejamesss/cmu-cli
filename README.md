@@ -47,18 +47,21 @@ For a pinned install, replace `refs/heads/main.zip` with `<full-commit-SHA>.zip`
 
 ## Put it to work
 
-Create a configuration, then replace the example Canvas origin, course IDs and
-storage directory with your own using the [setup guide](docs/provider-cli.md):
+Run the [guided setup](docs/setup.md): select courses, confirm folders, and connect
+only the browser hosts you approve. Use `cmu-cli setup` for the default config path,
+or keep a project-specific configuration:
 
 ```sh
-cmu-cli config init --output cmu-cli.json
+cmu-cli setup --output cmu-cli.json
 cmu-cli --config cmu-cli.json config validate
 cmu-cli --config cmu-cli.json doctor
 ```
 
-These checks run offline. Connect your account through an
-[explicit browser session](docs/browser-auth.md) or an
-[externally provisioned Canvas token](docs/auth.md). Keep credentials out of config.
+Setup can discover Canvas courses after explicit consent to use an
+[existing browser session](docs/browser-auth.md) or an
+[externally provisioned Canvas token](docs/auth.md); manual course URLs also work.
+Profile listing alone never reads cookies. Validation and doctor run offline.
+For automation or hand editing, keep using `cmu-cli config init --output cmu-cli.json`.
 
 With access configured, replace `DEMO-101` below with your configured course code:
 

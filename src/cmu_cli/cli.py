@@ -1077,6 +1077,14 @@ def parser() -> argparse.ArgumentParser:
         "waitlist-history", help="Read historical waitlist entries, not current queue"
     )
     history.add_argument("--json", action="store_true")
+    setup = commands.add_parser(
+        "setup", help="Guided, consent-first configuration setup"
+    )
+    setup.add_argument(
+        "--output",
+        type=Path,
+        help="New config path (default: ~/.config/cmu_cli/config.json)",
+    )
     configuration = commands.add_parser("config", help="Offline configuration tools")
     configuration.add_argument("action", choices=["init", "validate", "browsers"])
     configuration.add_argument("--output", type=Path, default=Path("cmu-cli.json"))
@@ -1150,6 +1158,11 @@ def main() -> None:
         raise SystemExit(3)
     try:
         with sanitized_errors():
+            if args.command == "setup":
+                from .setup import run_setup
+
+                run_setup(args.output)
+                return
             if args.command in {"ed", "sio"}:
                 _CONTEXT["command"] = args.command + " " + args.action
                 raise SystemExit(command_provider(args))
