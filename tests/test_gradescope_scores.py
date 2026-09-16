@@ -6,6 +6,7 @@ import pytest
 
 from cmu_cli import cli
 from cmu_cli.gradescope_client import GradescopeClient
+from cmu_cli.gradescope_details import parse_course_grades
 from cmu_cli.models import Course
 
 COURSE = Course(
@@ -58,6 +59,12 @@ def test_score_and_submission_evidence(
     score_html = f'<div class="submissionStatus--score">{score}</div>' if score else ""
     html = f'<table id="assignments-student-table"><tbody><tr><th scope="row">{title}</th><td class="submissionStatus">{status_html}{score_html}</td><td>Other numbers: 5 / 10</td></tr></tbody></table>'
     parsed = GradescopeClient.parse_assignments(COURSE, html)
+    grade_row = parse_course_grades(COURSE, html)[0]
+    assert grade_row["score"] == points
+    assert grade_row["points_possible"] == possible
+    if release == "released":
+        assert grade_row["release_state"] == "released"
+        assert grade_row["submission_state"] == "submitted"
     expected = {
         "status": status,
         "submitted": submitted,
@@ -74,3 +81,15 @@ def test_score_and_submission_evidence(
     assert {key: row[key] for key in expected} == expected
     if link == LINK:
         assert row["url"] == "https://www.gradescope.com" + LINK
+
+
+@pytest.mark.parametrize(
+    "attribute", ["hidden", 'aria-hidden="true"', 'style="display:none"']
+)
+def test_hidden_score_is_not_released(attribute):
+    html = f'<table id="assignments-student-table"><tbody><tr><th scope="row">Homework</th><td><div class="submissionStatus--score" {attribute}>0 / 10</div></td></tr></tbody></table>'
+    assignment = GradescopeClient.parse_assignments(COURSE, html)[0]
+    assert assignment["score"] is None
+    assert assignment["submitted"] is None
+    assert assignment["grade_status"] == "unknown"
+    assert parse_course_grades(COURSE, html)[0]["release_state"] == "unknown"

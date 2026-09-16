@@ -130,7 +130,12 @@ def parse_course_grades(course: Course, html: str) -> list[dict]:
             if status_node and _visible(status_node)
             else ""
         )
-        grade = parse_score(status)
+        score_node = row.select_one(".submissionStatus--score")
+        grade = parse_score(
+            score_node.get_text(" ", strip=True)
+            if score_node and _visible(score_node)
+            else status
+        )
         normalized = " ".join(status.split()).casefold()
         submission = (
             "submitted"

@@ -74,6 +74,21 @@ class GradescopeClient:
 
     @staticmethod
     def parse_assignments(course: Course, html: str) -> list[dict[str, Any]]:
+        """Parse caller-supplied HTML without authentication or network access.
+
+        Rows retain name/status/dates/url and add submitted (bool or None),
+        score/points_possible (float or None), and grade_status. Only a visible
+        unambiguous numeric score proves grade_status='released'; otherwise it
+        is 'unknown', including submission links without a visible score.
+        """
+        # Lazy import avoids the details module's client/error dependency cycle.
+        from .gradescope_details import (
+            _detail_url,
+            _observed_url,
+            _visible,
+            parse_score,
+        )
+
         course_id = GradescopeClient.course_id(course)
         if not course_id or not course.gradescope_url:
             raise GradescopeError("An explicit Gradescope course URL is required")
@@ -112,24 +127,26 @@ class GradescopeClient:
                 )
             else:
                 assignment_url = course.gradescope_url
-            status = status_element.get_text(" ", strip=True) if status_element else ""
+            status = (
+                status_element.get_text(" ", strip=True)
+                if status_element and _visible(status_element)
+                else ""
+            )
             submitted = submission_state(status)
             score_element = row.select_one(".submissionStatus--score")
             score_text = (
-                score_element.get_text(" ", strip=True) if score_element else ""
+                score_element.get_text(" ", strip=True)
+                if score_element and _visible(score_element)
+                else status
             )
-            # Only the dedicated visible score element proves grade release.
-            match = re.fullmatch(r"(\d+(?:\.\d+)?)\s*/\s*(\d+(?:\.\d+)?)", score_text)
-            score, points_possible = (
-                (float(match[1]), float(match[2])) if match else (None, None)
-            )
+            grade = parse_score(score_text)
+            score, points_possible = grade["score"], grade["points_possible"]
             submission_link = any(
-                urlparse(urljoin(course.gradescope_url, str(anchor.get("href")))).netloc
-                == urlparse(course.gradescope_url).netloc
-                and re.fullmatch(
-                    rf"/courses/{course_id}/assignments/\d+/submissions/\d+/?",
-                    urlparse(str(anchor.get("href"))).path,
-                )
+                _visible(anchor)
+                and str(anchor.get("data-method", "get")).lower() == "get"
+                and (url := _observed_url(course.gradescope_url, str(anchor["href"])))
+                and _detail_url(course, url)
+                and "/submissions/" in urlparse(url).path
                 for anchor in row.select("a[href]")
             )
             if score is not None:
