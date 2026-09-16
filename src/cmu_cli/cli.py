@@ -377,9 +377,13 @@ def assignment_rows(
                     "lock_at": timestamp(assignment.get("lock_at")),
                     "due_local": assignment.get("released_due")
                     or format_time(assignment.get("due_at")),
-                    "submitted": submission_state(assignment.get("status")),
-                    "status": assignment.get("status") or "unknown",
-                    "points_possible": None,
+                    "submitted": assignment.get(
+                        "submitted", submission_state(assignment.get("status"))
+                    ),
+                    "status": assignment.get("status") or "Unknown",
+                    "score": assignment.get("score"),
+                    "points_possible": assignment.get("points_possible"),
+                    "grade_status": assignment.get("grade_status", "unknown"),
                     "url": assignment.get("url"),
                     "description": "",
                 }

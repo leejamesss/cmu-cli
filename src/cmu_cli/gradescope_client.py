@@ -10,6 +10,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from .models import Course
+from .submissions import submission_state
 from .web_session import (
     MAX_DOCUMENT_BYTES,
     BrowserDependencyMissing,
@@ -73,6 +74,21 @@ class GradescopeClient:
 
     @staticmethod
     def parse_assignments(course: Course, html: str) -> list[dict[str, Any]]:
+        """Parse caller-supplied HTML without authentication or network access.
+
+        Rows retain name/status/dates/url and add submitted (bool or None),
+        score/points_possible (float or None), and grade_status. Only a visible
+        unambiguous numeric score proves grade_status='released'; otherwise it
+        is 'unknown', including submission links without a visible score.
+        """
+        # Lazy import avoids the details module's client/error dependency cycle.
+        from .gradescope_details import (
+            _detail_url,
+            _observed_url,
+            _visible,
+            parse_score,
+        )
+
         course_id = GradescopeClient.course_id(course)
         if not course_id or not course.gradescope_url:
             raise GradescopeError("An explicit Gradescope course URL is required")
@@ -111,12 +127,46 @@ class GradescopeClient:
                 )
             else:
                 assignment_url = course.gradescope_url
+            status = (
+                status_element.get_text(" ", strip=True)
+                if status_element and _visible(status_element)
+                else ""
+            )
+            submitted = submission_state(status)
+            score_element = row.select_one(".submissionStatus--score")
+            score_text = (
+                score_element.get_text(" ", strip=True)
+                if score_element and _visible(score_element)
+                else status
+            )
+            grade = parse_score(score_text)
+            score, points_possible = grade["score"], grade["points_possible"]
+            submission_link = any(
+                _visible(anchor)
+                and str(anchor.get("data-method", "get")).lower() == "get"
+                and (url := _observed_url(course.gradescope_url, str(anchor["href"])))
+                and _detail_url(course, url)
+                and "/submissions/" in urlparse(url).path
+                for anchor in row.select("a[href]")
+            )
+            if score is not None:
+                status, submitted = "Graded", True
+            elif submitted is False:
+                # Explicit negative evidence must not match the word 'submitted'.
+                pass
+            elif submitted is True or submission_link:
+                status = "Graded" if status.strip().lower() == "graded" else "Submitted"
+                submitted = True
+            else:
+                status = "Unknown"
             rows.append(
                 {
                     "name": name,
-                    "status": status_element.get_text(" ", strip=True)
-                    if status_element
-                    else "",
+                    "status": status,
+                    "submitted": submitted,
+                    "score": score,
+                    "points_possible": points_possible,
+                    "grade_status": "released" if score is not None else "unknown",
                     "released_due": due_element.get_text(" ", strip=True)
                     if due_element
                     else "",
