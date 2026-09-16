@@ -40,6 +40,10 @@ def test_assignment_parser_uses_due_time_not_release_time():
         {
             "name": "Assignment 1",
             "status": "No Submission",
+            "submitted": False,
+            "score": None,
+            "points_possible": None,
+            "grade_status": "unknown",
             "released_due": "Sep 03 at 3:00PM",
             "due_at": "2026-09-03 15:00:00 -0400",
             "url": "https://www.gradescope.com/courses/101/assignments/202",

@@ -10,6 +10,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from .models import Course
+from .submissions import submission_state
 from .web_session import (
     MAX_DOCUMENT_BYTES,
     BrowserDependencyMissing,
@@ -111,12 +112,44 @@ class GradescopeClient:
                 )
             else:
                 assignment_url = course.gradescope_url
+            status = status_element.get_text(" ", strip=True) if status_element else ""
+            submitted = submission_state(status)
+            score_element = row.select_one(".submissionStatus--score")
+            score_text = (
+                score_element.get_text(" ", strip=True) if score_element else ""
+            )
+            # Only the dedicated visible score element proves grade release.
+            match = re.fullmatch(r"(\d+(?:\.\d+)?)\s*/\s*(\d+(?:\.\d+)?)", score_text)
+            score, points_possible = (
+                (float(match[1]), float(match[2])) if match else (None, None)
+            )
+            submission_link = any(
+                urlparse(urljoin(course.gradescope_url, str(anchor.get("href")))).netloc
+                == urlparse(course.gradescope_url).netloc
+                and re.fullmatch(
+                    rf"/courses/{course_id}/assignments/\d+/submissions/\d+/?",
+                    urlparse(str(anchor.get("href"))).path,
+                )
+                for anchor in row.select("a[href]")
+            )
+            if score is not None:
+                status, submitted = "Graded", True
+            elif submitted is False:
+                # Explicit negative evidence must not match the word 'submitted'.
+                pass
+            elif submitted is True or submission_link:
+                status = "Graded" if status.strip().lower() == "graded" else "Submitted"
+                submitted = True
+            else:
+                status = "Unknown"
             rows.append(
                 {
                     "name": name,
-                    "status": status_element.get_text(" ", strip=True)
-                    if status_element
-                    else "",
+                    "status": status,
+                    "submitted": submitted,
+                    "score": score,
+                    "points_possible": points_possible,
+                    "grade_status": "released" if score is not None else "unknown",
                     "released_due": due_element.get_text(" ", strip=True)
                     if due_element
                     else "",
