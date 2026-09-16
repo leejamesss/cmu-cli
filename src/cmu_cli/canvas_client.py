@@ -151,10 +151,11 @@ class CanvasClient:
             if anonymous_session is not None:
                 anonymous_session.close()
 
-    def list_courses(self) -> list[dict[str, Any]]:
-        return self.get(
-            "/api/v1/courses", {"enrollment_state": "active", "per_page": 100}
-        )
+    def list_courses(self, *, include_term: bool = False) -> list[dict[str, Any]]:
+        params = {"enrollment_state": "active", "per_page": 100}
+        if include_term:
+            params["include[]"] = ["term"]
+        return self.get("/api/v1/courses", params)
 
     def assignments(self, course_id: int) -> list[dict[str, Any]]:
         return self.get(

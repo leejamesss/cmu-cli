@@ -118,6 +118,11 @@ def load_config(path: Path | None = None) -> Config:
         path or os.environ.get("CMU_CLI_CONFIG", default_config_path())
     ).expanduser()
     raw = json.loads(path.read_text(encoding="utf-8"))
+    return validate_config(raw, path)
+
+
+def validate_config(raw: dict, path: Path) -> Config:
+    """Validate in-memory configuration using the same rules as file loading."""
     base = raw["canvas_base_url"].rstrip("/")
     parsed = urlparse(base)
     if (

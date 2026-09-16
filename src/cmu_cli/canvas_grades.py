@@ -185,6 +185,10 @@ def own_identity(client):
 def command_grades(args, config, client):
     from . import cli, style
 
+    if getattr(args, "source", "canvas") == "gradescope":
+        from .gradescope_commands import command_gradescope
+
+        return command_gradescope(args, config)
     user_id = grade_fetch("canvas.self_profile", None, lambda: own_identity(client))
     result = {
         "assignments": [],

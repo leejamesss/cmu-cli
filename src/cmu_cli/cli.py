@@ -787,7 +787,11 @@ def command_provider(args):
             record.update(status=result["status"], provenance=result["provenance"])
         else:
             with EdClient(base_url=config.ed_api_base_url) as client:
-                if args.action == "courses":
+                if args.action in {"materials", "download"}:
+                    from .discussion_commands import read_materials
+
+                    result = read_materials(args, client)
+                elif args.action == "courses":
                     result = client.courses()
                 elif args.action in {"thread", "replies"}:
                     result = getattr(client, args.action)(
@@ -863,6 +867,10 @@ def _text(value: Any, fallback: str = "?") -> str:
 
 def ed_lines(action: str, result: Any) -> list[str]:
     """Readable Ed output. --json still returns the provider shape untouched."""
+    if action in {"materials", "download"}:
+        from .discussion_commands import material_lines
+
+        return material_lines(action, result)
     if action == "courses":
         rows = result if isinstance(result, list) else []
         if not rows:
@@ -975,7 +983,7 @@ COMMAND_HELP = {
     "status": "Report Canvas authentication and per-course platform configuration",
     "courses": "List configured courses and their Canvas availability",
     "assignments": "Read Canvas and Gradescope assignments with submission state",
-    "grades": "Read own Canvas grades and enrollment totals (not SIO)",
+    "grades": "Read own Canvas or Gradescope grades (not SIO)",
     "quizzes": "Read Canvas quizzes and their deadlines",
     "platforms": "Show the configured Canvas, Piazza and Gradescope links",
     "materials": "List Canvas files and already-synced local materials",
@@ -995,7 +1003,7 @@ def parser() -> argparse.ArgumentParser:
     root.add_argument("--version", action="version", version="cmu-cli 0.1.0")
     commands = root.add_subparsers(dest="command", required=True)
     grades = commands.add_parser("grades", help=COMMAND_HELP["grades"])
-    grades.add_argument("--source", choices=["canvas"], default="canvas")
+    grades.add_argument("--source", choices=["canvas", "gradescope"], default="canvas")
     grades.add_argument("--course")
     grades.add_argument("--details", action="store_true")
     grades.add_argument("--json", action="store_true")
@@ -1003,7 +1011,15 @@ def parser() -> argparse.ArgumentParser:
         "ed", help="Read-only Ed API token queries (no Canvas required)"
     )
     actions = ed.add_subparsers(dest="action", required=True)
-    for name in ("courses", "threads", "thread", "replies", "search"):
+    for name in (
+        "courses",
+        "threads",
+        "thread",
+        "replies",
+        "search",
+        "materials",
+        "download",
+    ):
         action = actions.add_parser(
             name, help="Local listing search" if name == "search" else None
         )
@@ -1012,7 +1028,7 @@ def parser() -> argparse.ArgumentParser:
             action.add_argument(
                 "--course-id",
                 type=ed_identifier,
-                required=name in {"threads", "search"},
+                required=name in {"threads", "search", "materials", "download"},
             )
         if name in {"thread", "replies"}:
             action.add_argument(
@@ -1021,7 +1037,17 @@ def parser() -> argparse.ArgumentParser:
                 required=True,
                 help="Global thread ID, not course-local number",
             )
-        if name in {"threads", "search"}:
+        if name == "download":
+            action.add_argument(
+                "--id", required=True, help="Attachment ID from ed materials"
+            )
+            action.add_argument(
+                "--output",
+                type=Path,
+                required=True,
+                help="Destination root; existing edits are never overwritten",
+            )
+        if name in {"threads", "search", "materials", "download"}:
             action.add_argument(
                 "--page-size",
                 type=positive_limit,
@@ -1055,6 +1081,14 @@ def parser() -> argparse.ArgumentParser:
         "waitlist-history", help="Read historical waitlist entries, not current queue"
     )
     history.add_argument("--json", action="store_true")
+    setup = commands.add_parser(
+        "setup", help="Guided, consent-first configuration setup"
+    )
+    setup.add_argument(
+        "--output",
+        type=Path,
+        help="New config path (default: ~/.config/cmu_cli/config.json)",
+    )
     configuration = commands.add_parser("config", help="Offline configuration tools")
     configuration.add_argument("action", choices=["init", "validate", "browsers"])
     configuration.add_argument("--output", type=Path, default=Path("cmu-cli.json"))
@@ -1128,6 +1162,11 @@ def main() -> None:
         raise SystemExit(3)
     try:
         with sanitized_errors():
+            if args.command == "setup":
+                from .setup import run_setup
+
+                run_setup(args.output)
+                return
             if args.command in {"ed", "sio"}:
                 _CONTEXT["command"] = args.command + " " + args.action
                 raise SystemExit(command_provider(args))
@@ -1218,6 +1257,7 @@ def main() -> None:
             client = (
                 CanvasClient(config.canvas_base_url, browser_auth=config.browser_auth)
                 if args.command not in {"posts", "open"}
+                and not (args.command == "grades" and args.source == "gradescope")
                 else None
             )
             if getattr(args, "course", None):
